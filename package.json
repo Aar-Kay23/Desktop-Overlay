@@ -5,8 +5,8 @@
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
-    "start": "electron electron/main.cjs",
-    "dock": "electron electron/main.cjs",
+    "start": "electron .",
+    "dock": "electron .",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",

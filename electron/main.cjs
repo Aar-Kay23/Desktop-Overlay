@@ -1,11 +1,14 @@
 const electron = require('electron');
 
-// Auto-fallback: If executed by Node instead of Electron binary, spawn Electron directly
-if (typeof electron === 'string') {
+// Auto-fallback: If executed with ELECTRON_RUN_AS_NODE or by Node directly
+if (typeof electron === 'string' || process.env.ELECTRON_RUN_AS_NODE) {
   const { spawn } = require('child_process');
   const path = require('path');
   const projectRoot = path.join(__dirname, '..');
-  const child = spawn(electron, [projectRoot], { stdio: 'inherit', windowsHide: false, detached: true });
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const execPath = typeof electron === 'string' ? electron : process.execPath;
+  const child = spawn(execPath, [projectRoot], { env, stdio: 'ignore', windowsHide: false, detached: true });
   child.unref();
   process.exit(0);
 }
@@ -204,8 +207,10 @@ function createTray() {
     icon = nativeImage.createEmpty();
   }
 
-  tray = new Tray(icon.isEmpty() ? nativeImage.createFromBuffer(Buffer.alloc(0)) : icon);
-  tray.setToolTip('Desktop Widgets');
+  try {
+    tray = new Tray(icon.isEmpty() ? nativeImage.createFromBuffer(Buffer.alloc(0)) : icon);
+    tray.setToolTip('Desktop Widgets');
+  } catch {}
 
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate([

@@ -1,9 +1,10 @@
 @echo off
+set ELECTRON_RUN_AS_NODE=
 cd /d "%~dp0"
 
 :: 1. Fast Pre-Flight Check: Is Desktop-Overlay already running?
 :: Exits immediately in milliseconds to prevent redundant process startup or performance spikes.
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name = 'electron.exe'\" | Where-Object CommandLine -like '*Desktop-Overlay*' | ForEach-Object { exit 10 }" >nul 2>&1
+powershell -NoProfile -Command "if (Get-Process electron -ErrorAction SilentlyContinue) { exit 10 }" >nul 2>&1
 if errorlevel 10 (
     exit /b 0
 )
