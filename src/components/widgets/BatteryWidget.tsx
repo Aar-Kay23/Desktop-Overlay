@@ -18,8 +18,8 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
   const isCharging = battery.isCharging || battery.acConnected;
 
   // Ring calculations
-  const radius = size === 'S' ? 38 : size === 'M' ? 44 : 56;
-  const stroke = size === 'S' ? 6 : 7;
+  const radius = size === 'S' ? 36 : size === 'M' ? 37 : 54;
+  const stroke = size === 'S' ? 6 : size === 'M' ? 6 : 7;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (pct / 100) * circumference;
 
@@ -71,7 +71,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
       )}
 
       {size === 'M' && (
-        <div className="flex items-center justify-between flex-1 gap-4 py-2">
+        <div className="flex items-center justify-between flex-1 gap-4 py-0.5">
           {/* Ring */}
           <div className="relative flex items-center justify-center shrink-0">
             <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg]">
@@ -107,7 +107,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
           </div>
 
           {/* Details */}
-          <div className="flex-1 flex flex-col justify-center space-y-2 text-xs">
+          <div className="flex-1 flex flex-col justify-center space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center gap-1.5">
                 <Zap className="w-3.5 h-3.5 text-amber-400" />
@@ -128,7 +128,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
               </span>
             </div>
 
-            <div className="flex items-center justify-between text-[11px]">
+            <div className="flex items-center justify-between text-[10px]">
               <span className="text-slate-500 font-mono">Model</span>
               <span className="text-slate-400 font-mono truncate max-w-[120px]">
                 {battery.model || 'Dell OEM'}

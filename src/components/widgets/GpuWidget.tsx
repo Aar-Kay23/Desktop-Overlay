@@ -42,8 +42,8 @@ export const GpuWidget: React.FC<WidgetProps> = ({ size }) => {
           </div>
         </div>
 
-        <div className="my-1">
-          <Sparkline data={gpu.history} color="emerald" height={42} />
+        <div className="my-0.5">
+          <Sparkline data={gpu.history} color="emerald" height={28} />
         </div>
 
         <div className="flex flex-col gap-1">

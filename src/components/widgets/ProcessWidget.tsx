@@ -59,7 +59,7 @@ export const ProcessWidget: React.FC<WidgetProps> = ({ size }) => {
         <span className="text-xs font-mono text-slate-400">{topProcesses.length} items</span>
       </div>
 
-      <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[260px] pr-1">
+      <div className="flex flex-col gap-1 overflow-y-auto max-h-[238px] pr-1">
         {topProcesses.slice(0, 6).map((p) => (
           <div
             key={p.pid}

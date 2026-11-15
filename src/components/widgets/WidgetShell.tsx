@@ -29,8 +29,8 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
   // Dimension and grid span mapping
   const sizeClasses = {
     S: 'w-[164px] h-[164px] p-3.5',
-    M: 'w-[344px] h-[164px] p-4',
-    V: 'w-[164px] h-[344px] p-4',
+    M: 'w-[344px] h-[164px] pt-2.5 pb-2.5 px-3.5',
+    V: 'w-[164px] h-[344px] pt-3 pb-3 px-3.5',
     L: 'w-[344px] h-[344px] p-4',
   };
 

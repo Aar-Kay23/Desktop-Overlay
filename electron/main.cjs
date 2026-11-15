@@ -55,8 +55,8 @@ function createWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    minimizable: true, // Required so Win+D minimize commands are intercepted
-    type: 'toolbar',   // WS_EX_TOOLWINDOW style on Windows
+    minimizable: true,
+    type: 'toolbar', // WS_EX_TOOLWINDOW style on Windows
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -83,20 +83,17 @@ function createWindow() {
   // Win32 System Command Hook to catch and mitigate Win+D / Show Desktop minimize sweeps
   if (process.platform === 'win32') {
     const WM_SYSCOMMAND = 0x0112;
-    const SC_MINIMIZE = 0xF020;
+    const SC_MINIMIZE = 0xf020;
     try {
       win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
-        const cmd = wParam.readUInt32LE(0) & 0xFFF0;
+        const cmd = wParam.readUInt32LE(0) & 0xfff0;
         if (cmd === SC_MINIMIZE && !isUserHidden) {
-          [80, 220, 450].forEach((delay) => {
+          [60, 180, 350].forEach((delay) => {
             setTimeout(() => {
               if (win && !win.isDestroyed() && !isUserHidden) {
                 if (win.isMinimized()) win.restore();
-                win.showInactive();
-                if (!isAlwaysOnTop) {
-                  win.setAlwaysOnTop(false);
-                  win.blur();
-                }
+                win.show();
+                if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
               }
             }, delay);
           });
@@ -107,19 +104,16 @@ function createWindow() {
 
   // Win+D / Show Desktop protection:
   // When Win+D or taskbar "Show Desktop" is triggered, Windows DWM commands a minimize.
-  // We intercept it, allow DWM to finish minimizing foreground windows, then restore the desktop layer.
+  // We intercept it, allow DWM to finish minimizing foreground windows, then restore the desktop layer cleanly.
   win.on('minimize', (e) => {
     e.preventDefault();
     if (isUserHidden) return;
-    [80, 220, 450].forEach((delay) => {
+    [60, 180, 350].forEach((delay) => {
       setTimeout(() => {
         if (win && !win.isDestroyed() && !isUserHidden) {
           if (win.isMinimized()) win.restore();
-          win.showInactive();
-          if (!isAlwaysOnTop) {
-            win.setAlwaysOnTop(false);
-            win.blur(); // Yield keyboard and mouse focus back to Windows desktop Explorer
-          }
+          win.show();
+          if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
         }
       }, delay);
     });
@@ -131,20 +125,10 @@ function createWindow() {
       setTimeout(() => {
         if (win && !win.isDestroyed() && !isUserHidden) {
           if (win.isMinimized()) win.restore();
-          win.showInactive();
-          if (!isAlwaysOnTop) {
-            win.setAlwaysOnTop(false);
-            win.blur();
-          }
+          win.show();
+          if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
         }
       }, 100);
-    }
-  });
-
-  win.on('blur', () => {
-    // Keep at desktop layer when user is working in other apps
-    if (!isAlwaysOnTop && win && !win.isDestroyed()) {
-      win.setAlwaysOnTop(false);
     }
   });
 
@@ -165,8 +149,8 @@ function startTelemetryBroadcast() {
       // Periodic safeguard: auto-recover if Windows silently minimized the window
       if (!isUserHidden && win.isMinimized()) {
         win.restore();
-        win.showInactive();
-        if (!isAlwaysOnTop) win.blur();
+        win.show();
+        if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
       }
 
       const data = await getSystemTelemetry();
@@ -175,6 +159,35 @@ function startTelemetryBroadcast() {
       }
     }
   }, 1500);
+}
+
+function bringToFront() {
+  if (!win || win.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  isUserHidden = false;
+  if (win.isMinimized()) {
+    win.restore();
+  }
+  win.show();
+  win.focus();
+  if (isAlwaysOnTop) {
+    win.setAlwaysOnTop(true, 'floating');
+  }
+}
+
+function toggleVisibility() {
+  if (!win || win.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (win.isMinimized() || !win.isVisible() || isUserHidden) {
+    bringToFront();
+  } else {
+    isUserHidden = true;
+    win.hide();
+  }
 }
 
 function createTray() {
@@ -192,8 +205,15 @@ function createTray() {
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: win && win.isVisible() && !isUserHidden ? 'Hide Desktop Widgets' : 'Show Desktop Widgets',
-        click: () => toggleVisibility(),
+        label: 'Show Desktop Widgets',
+        click: () => bringToFront(),
+      },
+      {
+        label: 'Hide Desktop Widgets',
+        click: () => {
+          isUserHidden = true;
+          if (win && !win.isDestroyed()) win.hide();
+        },
       },
       { type: 'separator' },
       {
@@ -202,15 +222,15 @@ function createTray() {
         checked: isAlwaysOnTop,
         click: (item) => {
           isAlwaysOnTop = item.checked;
-          if (win) {
-            win.setAlwaysOnTop(isAlwaysOnTop);
+          if (win && !win.isDestroyed()) {
+            win.setAlwaysOnTop(isAlwaysOnTop, 'floating');
           }
         },
       },
       {
         label: 'Reload Widgets',
         click: () => {
-          if (win) win.reload();
+          if (win && !win.isDestroyed()) win.reload();
         },
       },
       { type: 'separator' },
@@ -228,38 +248,13 @@ function createTray() {
   updateMenu();
 
   tray.on('click', () => {
-    toggleVisibility();
+    if (!win || win.isDestroyed() || win.isMinimized() || !win.isVisible() || isUserHidden) {
+      bringToFront();
+    } else {
+      toggleVisibility();
+    }
     updateMenu();
   });
-}
-
-function toggleVisibility() {
-  if (!win || win.isDestroyed()) {
-    createWindow();
-    return;
-  }
-  if (win.isMinimized()) {
-    isUserHidden = false;
-    win.restore();
-    win.show();
-    if (!isAlwaysOnTop) {
-      win.setAlwaysOnTop(false);
-      win.blur();
-    }
-    return;
-  }
-  if (win.isVisible() && !isUserHidden) {
-    isUserHidden = true;
-    win.hide();
-  } else {
-    isUserHidden = false;
-    win.show();
-    win.restore();
-    if (!isAlwaysOnTop) {
-      win.setAlwaysOnTop(false);
-      win.blur();
-    }
-  }
 }
 
 // IPC Handlers
@@ -275,8 +270,8 @@ ipcMain.on('set-interactive', (_event, interactive) => {
 
 ipcMain.on('toggle-always-on-top', () => {
   isAlwaysOnTop = !isAlwaysOnTop;
-  if (win) {
-    win.setAlwaysOnTop(isAlwaysOnTop);
+  if (win && !win.isDestroyed()) {
+    win.setAlwaysOnTop(isAlwaysOnTop, 'floating');
   }
 });
 
@@ -288,7 +283,6 @@ ipcMain.on('set-overlay-mode', (_event, mode) => {
     } else if (!isAlwaysOnTop) {
       // Desktop widgets return to native desktop layer behind active apps
       win.setAlwaysOnTop(false);
-      win.blur();
     }
   }
 });
@@ -320,12 +314,7 @@ ipcMain.on('system:action', (_event, action) => {
 });
 
 app.on('second-instance', () => {
-  if (win && !win.isDestroyed()) {
-    isUserHidden = false;
-    if (!win.isVisible()) win.show();
-    if (win.isMinimized()) win.restore();
-    if (!isAlwaysOnTop) win.blur();
-  }
+  bringToFront();
 });
 
 app.whenReady().then(() => {

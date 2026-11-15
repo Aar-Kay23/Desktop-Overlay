@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, SlidersHorizontal, RotateCcw, Sparkles, Settings, Sidebar, Magnet, LayoutGrid, Sliders, X } from 'lucide-react';
+import { Plus, SlidersHorizontal, RotateCcw, Sparkles, Settings, Sidebar, Magnet, LayoutGrid, Sliders, X, Maximize2 } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS, DEFAULT_WIDGET_LAYOUT } from '../../lib/widgetRegistry';
 import { clampPosition, snapCoordinate, computeAutoLayout, WIDGET_DIMENSIONS } from '../../lib/layoutUtils';
@@ -235,6 +235,14 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             className="p-1.5 rounded-full macos-glass hover:bg-white/20 text-slate-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
           >
             <Sidebar className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setMode('hud')}
+            title="Switch to Pinned Dynamic Island (Floats above all apps)"
+            className="p-1.5 rounded-full macos-glass hover:bg-white/20 text-slate-400 hover:text-white border border-white/10 transition-colors cursor-pointer"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
           </button>
 
           {onOpenSettings && (

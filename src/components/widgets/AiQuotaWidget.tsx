@@ -108,17 +108,17 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
           )}
         </div>
 
-        <div className="flex flex-col gap-2 my-auto">
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-xs font-mono">
+        <div className="flex flex-col gap-1.5 my-auto">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex justify-between text-[11px] font-mono">
               <span className="text-slate-400">5h Burst Limit</span>
               <span className="text-white font-semibold">{Math.round(primary.sessionLimit.usedPct)}%</span>
             </div>
             <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={4} />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-xs font-mono">
+          <div className="flex flex-col gap-0.5">
+            <div className="flex justify-between text-[11px] font-mono">
               <span className="text-slate-400">Weekly Pool</span>
               <span className="text-slate-300">{Math.round(primary.weeklyLimit.usedPct)}%</span>
             </div>

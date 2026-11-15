@@ -77,8 +77,8 @@ export const CpuWidget: React.FC<WidgetProps> = ({ size }) => {
           </div>
         </div>
 
-        <div className="my-1">
-          <Sparkline data={cpu.history} color="cyan" height={42} />
+        <div className="my-0.5">
+          <Sparkline data={cpu.history} color="cyan" height={28} />
         </div>
 
         <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">

@@ -42,8 +42,8 @@ export const MemoryWidget: React.FC<WidgetProps> = ({ size }) => {
           </span>
         </div>
 
-        <div className="my-1">
-          <Sparkline data={memory.history} color="violet" height={42} />
+        <div className="my-0.5">
+          <Sparkline data={memory.history} color="violet" height={28} />
         </div>
 
         <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
