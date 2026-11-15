@@ -104,15 +104,22 @@ npm run dev
 ```
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-### 4. Run as a Borderless Windows Desktop Window
-Launch the included Windows batch script or run:
+### 4. Run as an Integrated Native Windows Desktop Dock
+Launch the included batch script or run `npm start`:
 ```cmd
 start-desktop-overlay.bat
 ```
-*(Or launch manually via Edge/Chrome app mode):*
-```cmd
-msedge.exe --app=http://localhost:5173 --window-size=420,950
+*(Or via npm)*:
+```bash
+npm start
 ```
+This launches a **true frameless, transparent desktop widget dock** that:
+- Docks firmly to the right side of your desktop screen.
+- Has zero window borders or titlebars.
+- Does not clutter the taskbar (`skipTaskbar: true`).
+- Stays accessible and clickable like a native widget alongside your open code or apps.
+- Toggle visibility at any time with global hotkey: **`Ctrl+Shift+D`**.
+- Switch dock side (Left or Right) or toggle "Always on Top" via the Windows System Tray menu.
 
 ### 5. Automated Testing (Vitest)
 ```bash

@@ -1,9 +1,12 @@
 {
   "name": "desktop-overlay",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
+    "start": "electron electron/main.cjs",
+    "dock": "electron electron/main.cjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "test": "vitest run",
@@ -31,6 +34,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.2",
+    "electron": "^45.3.2",
     "jsdom": "^29.1.1",
     "oxlint": "^1.90.0",
     "postcss": "^8.5.33",
