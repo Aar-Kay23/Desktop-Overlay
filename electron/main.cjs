@@ -15,8 +15,44 @@ if (typeof electron === 'string' || process.env.ELECTRON_RUN_AS_NODE) {
 
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
+const koffi = require('koffi');
 const { getSystemTelemetry } = require('./telemetry.cjs');
-const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon, setDesktopStateListener } = require('./media.cjs');
+const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
+
+// Native Win32 API bindings via Koffi (0ms latency, zero build step)
+const user32 = koffi.load('user32.dll');
+const GetForegroundWindow = user32.func('intptr_t GetForegroundWindow()');
+const GetClassNameW = user32.func('int GetClassNameW(intptr_t hWnd, _Out_ uint16_t *lpClassName, int nMaxCount)');
+const GetWindowThreadProcessId = user32.func('uint32_t GetWindowThreadProcessId(intptr_t hWnd, _Out_ uint32_t *lpdwProcessId)');
+const SetWindowPos = user32.func('bool SetWindowPos(intptr_t hWnd, intptr_t hWndInsertAfter, int X, int Y, int cx, int cy, uint32_t uFlags)');
+
+const SHELL_DESKTOP_CLASSES = new Set([
+  'Progman',                     // Windows Desktop Shell
+  'WorkerW',                    // Desktop Wallpaper Host (Win 10/11)
+  'Shell_TrayWnd',              // Primary Taskbar
+  'Shell_SecondaryTrayWnd',     // Multi-Monitor Taskbars
+  'Windows.UI.Core.CoreWindow', // Windows 11 Start Menu / Action Center
+  'XamlExplorerHostIslandWindow'// Modern Windows 11 Shell flyouts
+]);
+
+function getActiveForeground() {
+  try {
+    const hwnd = GetForegroundWindow();
+    if (!hwnd || hwnd === 0n || hwnd === 0) return { hwnd: 0, className: '', pid: 0 };
+
+    const bufCls = Buffer.alloc(512);
+    GetClassNameW(hwnd, bufCls, 256);
+    const className = bufCls.toString('utf16le').replace(/\0.*$/, '');
+
+    const bufPid = Buffer.alloc(4);
+    GetWindowThreadProcessId(hwnd, bufPid);
+    const pid = bufPid.readUInt32LE(0);
+
+    return { hwnd, className, pid };
+  } catch {
+    return { hwnd: 0, className: '', pid: 0 };
+  }
+}
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
@@ -38,36 +74,9 @@ let tray = null;
 let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
 let isDesktopVisible = true;  // Desktop widgets layer visibility
 let isIslandVisible = true;   // Dynamic island HUD visibility
-let isDesktopActive = false;  // Whether desktop wallpaper / shell is the foreground focus
 let _currentMode = 'canvas';  // 'canvas' | 'sidebar' | 'dashboard' | 'minibar' | 'hud'
 let telemetryTimer = null;
-
-function handleDesktopStateChange(desktopActive) {
-  if (isDesktopActive === desktopActive) return;
-  isDesktopActive = desktopActive;
-
-  if (!desktopWin || desktopWin.isDestroyed() || !isDesktopVisible) return;
-
-  // Manual user override: always stay on top
-  if (isAlwaysOnTop) {
-    desktopWin.setAlwaysOnTop(true, 'floating');
-    return;
-  }
-
-  if (desktopActive) {
-    // Desktop wallpaper / shell / taskbar is active: keep overlay above Progman/WorkerW
-    desktopWin.setAlwaysOnTop(true, 'floating');
-    if (desktopWin.isMinimized()) desktopWin.restore();
-    desktopWin.show();
-  } else {
-    // User switched to full foreground app (Chrome, Word, VS Code): drop behind so app has full focus
-    desktopWin.setAlwaysOnTop(false);
-  }
-}
-
-setDesktopStateListener((isDesktop) => {
-  handleDesktopStateChange(isDesktop);
-});
+let focusMonitorTimer = null;
 
 function getDesktopBounds() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -85,7 +94,7 @@ function getIslandBounds() {
   return { x, y, width, height };
 }
 
-async function loadWindow(targetWin, hash = '') {
+async function loadWindow(targetWin, viewName = 'desktop') {
   const devUrl = 'http://localhost:5173';
   const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
 
@@ -95,10 +104,10 @@ async function loadWindow(targetWin, hash = '') {
   try {
     await fetch(devUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
-    targetWin.loadURL(`${devUrl}${hash ? '#' + hash : ''}`);
+    targetWin.loadURL(`${devUrl}?view=${viewName}#${viewName}`);
   } catch {
     clearTimeout(timeoutId);
-    targetWin.loadFile(prodPath, { hash });
+    targetWin.loadFile(prodPath, { hash: viewName, query: { view: viewName } });
   }
 }
 
@@ -135,6 +144,8 @@ function createDesktopWindow() {
   desktopWin.once('ready-to-show', () => {
     if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
       desktopWin.show();
+      // Initially send to bottom of Z-order so foreground apps have full focus
+      sendDesktopToBottom();
     }
   });
 
@@ -151,7 +162,7 @@ function createDesktopWindow() {
               if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
                 if (desktopWin.isMinimized()) desktopWin.restore();
                 desktopWin.show();
-                if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+                desktopWin.setAlwaysOnTop(true, 'floating');
               }
             }, delay);
           });
@@ -169,7 +180,7 @@ function createDesktopWindow() {
         if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
           if (desktopWin.isMinimized()) desktopWin.restore();
           desktopWin.show();
-          if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+          desktopWin.setAlwaysOnTop(true, 'floating');
         }
       }, delay);
     });
@@ -178,6 +189,16 @@ function createDesktopWindow() {
   desktopWin.on('closed', () => {
     desktopWin = null;
   });
+}
+
+function sendDesktopToBottom() {
+  if (!desktopWin || desktopWin.isDestroyed()) return;
+  try {
+    const rawHwnd = desktopWin.getNativeWindowHandle();
+    const hwndVal = rawHwnd.length >= 8 ? rawHwnd.readBigInt64LE(0) : BigInt(rawHwnd.readUInt32LE(0));
+    // HWND_BOTTOM = 1n, SWP_NOSIZE = 1, SWP_NOMOVE = 2, SWP_NOACTIVATE = 0x10 -> 0x0013
+    SetWindowPos(hwndVal, 1n, 0, 0, 0, 0, 0x0013);
+  } catch {}
 }
 
 function createIslandWindow() {
@@ -223,6 +244,39 @@ function createIslandWindow() {
   });
 }
 
+// Active Focus & Z-Order Synchronization Loop (120ms tick, 0% CPU via native Win32 calls)
+let lastDesktopState = null;
+
+function checkActiveFocus() {
+  if (!desktopWin || desktopWin.isDestroyed() || !isDesktopVisible) return;
+
+  if (isAlwaysOnTop) {
+    desktopWin.setAlwaysOnTop(true, 'floating');
+    return;
+  }
+
+  const { className, pid } = getActiveForeground();
+  // If active foreground is our own Electron process (e.g. user clicked a widget), don't flip
+  if (pid === process.pid || !className) return;
+
+  const isDesktop = SHELL_DESKTOP_CLASSES.has(className);
+
+  if (isDesktop !== lastDesktopState) {
+    lastDesktopState = isDesktop;
+    if (isDesktop) {
+      // User is on desktop wallpaper or taskbar: bring widgets above wallpaper
+      desktopWin.setAlwaysOnTop(true, 'floating');
+      if (desktopWin.isMinimized()) desktopWin.restore();
+      if (!desktopWin.isVisible()) desktopWin.showInactive();
+    } else {
+      // User is in a real application (VS Code, Chrome, Word, etc.):
+      // DROP BEHIND APPLICATION IMMEDIATELY
+      desktopWin.setAlwaysOnTop(false);
+      sendDesktopToBottom();
+    }
+  }
+}
+
 function startTelemetryBroadcast() {
   if (telemetryTimer) clearInterval(telemetryTimer);
 
@@ -231,7 +285,7 @@ function startTelemetryBroadcast() {
     if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed() && desktopWin.isMinimized()) {
       desktopWin.restore();
       desktopWin.show();
-      if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+      if (isAlwaysOnTop || lastDesktopState) desktopWin.setAlwaysOnTop(true, 'floating');
     }
 
     const data = await getSystemTelemetry();
@@ -244,6 +298,9 @@ function startTelemetryBroadcast() {
       }
     }
   }, 2000);
+
+  if (focusMonitorTimer) clearInterval(focusMonitorTimer);
+  focusMonitorTimer = setInterval(checkActiveFocus, 120);
 }
 
 function toggleDesktopWidgets(forceState) {
@@ -255,7 +312,12 @@ function toggleDesktopWidgets(forceState) {
   if (isDesktopVisible) {
     if (desktopWin.isMinimized()) desktopWin.restore();
     desktopWin.show();
-    if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+    if (isAlwaysOnTop || lastDesktopState) {
+      desktopWin.setAlwaysOnTop(true, 'floating');
+    } else {
+      desktopWin.setAlwaysOnTop(false);
+      sendDesktopToBottom();
+    }
   } else {
     desktopWin.hide();
   }
@@ -317,7 +379,12 @@ function createTray() {
         click: (item) => {
           isAlwaysOnTop = item.checked;
           if (desktopWin && !desktopWin.isDestroyed()) {
-            desktopWin.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+            if (isAlwaysOnTop) {
+              desktopWin.setAlwaysOnTop(true, 'floating');
+            } else {
+              desktopWin.setAlwaysOnTop(false);
+              sendDesktopToBottom();
+            }
           }
         },
       },
@@ -359,18 +426,28 @@ ipcMain.on('set-interactive', (event, interactive) => {
 ipcMain.on('toggle-always-on-top', () => {
   isAlwaysOnTop = !isAlwaysOnTop;
   if (desktopWin && !desktopWin.isDestroyed()) {
-    desktopWin.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+    if (isAlwaysOnTop) {
+      desktopWin.setAlwaysOnTop(true, 'floating');
+    } else {
+      desktopWin.setAlwaysOnTop(false);
+      sendDesktopToBottom();
+    }
   }
   updateTrayMenu();
 });
 
 ipcMain.on('set-overlay-mode', (_event, mode) => {
   _currentMode = mode;
-  if (desktopWin && !desktopWin.isDestroyed()) {
-    desktopWin.webContents.send('mode:change', mode);
-  }
   if (mode === 'hud') {
+    // Switch to Dynamic Island only: hide desktop widgets and show island
+    if (desktopWin && !desktopWin.isDestroyed()) desktopWin.hide();
     toggleDynamicIsland(true);
+  } else {
+    // Switch to desktop widgets: show desktop widgets and update layout
+    toggleDesktopWidgets(true);
+    if (desktopWin && !desktopWin.isDestroyed()) {
+      desktopWin.webContents.send('mode:change', mode);
+    }
   }
 });
 
@@ -439,6 +516,7 @@ app.on('will-quit', () => {
   stopMediaDaemon();
   globalShortcut.unregisterAll();
   if (telemetryTimer) clearInterval(telemetryTimer);
+  if (focusMonitorTimer) clearInterval(focusMonitorTimer);
 });
 
 app.on('window-all-closed', (e) => {

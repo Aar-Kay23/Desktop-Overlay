@@ -36,7 +36,11 @@ export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = f
         <div
           data-interactive="true"
           onClick={() => setExpanded(false)}
-          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] pointer-events-auto transition-opacity"
+          className={
+            isStandaloneWindow
+              ? 'fixed inset-0 z-40 bg-transparent pointer-events-auto'
+              : 'fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px] pointer-events-auto transition-opacity'
+          }
         />
       )}
 

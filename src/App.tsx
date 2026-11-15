@@ -52,7 +52,6 @@ const OverlayContent: React.FC = () => {
       <main className="flex-1 relative z-10">
         {mode === 'canvas' && <DesktopCanvas onOpenSettings={() => setSettingsOpen(true)} />}
         {mode === 'sidebar' && <SidebarDock />}
-        {mode === 'hud' && <FloatingHUD />}
         {mode === 'dashboard' && <FullDashboard />}
         {mode === 'minibar' && <MiniBar />}
       </main>
@@ -65,7 +64,9 @@ const OverlayContent: React.FC = () => {
   );
 };
 
-const isIslandWindow = typeof window !== 'undefined' && window.location.hash.includes('island');
+const isIslandWindow =
+  typeof window !== 'undefined' &&
+  (window.location.hash.includes('island') || window.location.search.includes('island'));
 
 const IslandContent: React.FC = () => {
   // Click-through: empty margins around the Dynamic Island pass through to browser tabs & OS
