@@ -26,18 +26,18 @@ export const WidgetShell: React.FC<WidgetShellProps> = React.memo(({
   children,
   badge,
 }) => {
-  // Dimension and grid span mapping
+  // Spacing and inner padding mapping
   const sizeClasses = {
-    S: 'w-[164px] h-[164px] p-3.5',
-    M: 'w-[344px] h-[164px] pt-2 pb-2.5 px-3.5',
-    V: 'w-[164px] h-[344px] pt-2.5 pb-2.5 px-3.5',
-    L: 'w-[344px] h-[344px] p-4',
+    S: 'p-3',
+    M: 'pt-2 pb-2 px-3',
+    V: 'pt-2 pb-2.5 px-3',
+    L: 'p-3.5',
   };
 
   return (
     <div
       data-interactive="true"
-      className={`macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-shadow duration-200 pointer-events-auto ${
+      className={`w-full h-full macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-shadow duration-200 pointer-events-auto ${
         sizeClasses[size]
       } ${editMode ? 'ring-1 ring-white/20 shadow-2xl' : 'hover:shadow-xl'}`}
     >

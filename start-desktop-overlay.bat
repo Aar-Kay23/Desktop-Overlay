@@ -1,5 +1,6 @@
 @echo off
 set ELECTRON_RUN_AS_NODE=
+set electron_run_as_node=
 cd /d "%~dp0"
 
 :: 1. Ensure UI production assets are built

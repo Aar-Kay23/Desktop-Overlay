@@ -15,6 +15,18 @@ const DEFAULT_GLASS_SETTINGS: GlassSettings = {
   borderOpacity: 0.09,
 };
 
+export type ScalePreset = 'auto' | '75%' | '85%' | '100%' | '115%';
+
+export function getRecommendedScale(
+  width = typeof window !== 'undefined' ? window.innerWidth : 1920,
+  height = typeof window !== 'undefined' ? window.innerHeight : 1080
+): number {
+  if (width <= 1440 || height <= 840) return 0.78;
+  if (width <= 1680 || height <= 920) return 0.85;
+  if (width <= 1920) return 0.95;
+  return 1.10;
+}
+
 interface TelemetryContextValue {
   snapshot: SystemSnapshot;
   mode: OverlayMode;
@@ -28,6 +40,9 @@ interface TelemetryContextValue {
   togglePin: () => void;
   glassSettings: GlassSettings;
   setGlassSettings: (settings: Partial<GlassSettings>) => void;
+  widgetScale: number;
+  scalePreset: ScalePreset;
+  setScalePreset: (preset: ScalePreset) => void;
   decideApproval: (id: string, decision: 'allow' | 'deny') => Promise<void>;
   controlMedia: (action: 'playpause' | 'next' | 'prev') => Promise<void>;
   setVolume: (level: number) => Promise<void>;
@@ -76,6 +91,52 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return DEFAULT_GLASS_SETTINGS;
     }
   });
+
+  const [scalePreset, setScalePresetState] = useState<ScalePreset>(() => {
+    try {
+      return (localStorage.getItem('desktop_overlay_scale_preset') as ScalePreset) || 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1920,
+    height: typeof window !== 'undefined' ? window.innerHeight : 1080,
+  }));
+
+  useEffect(() => {
+    const onResize = () => {
+      setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const widgetScale = useMemo(() => {
+    switch (scalePreset) {
+      case '75%': return 0.75;
+      case '85%': return 0.85;
+      case '100%': return 1.00;
+      case '115%': return 1.15;
+      case 'auto':
+      default:
+        return getRecommendedScale(viewportSize.width, viewportSize.height);
+    }
+  }, [scalePreset, viewportSize]);
+
+  const setScalePreset = useCallback((preset: ScalePreset) => {
+    setScalePresetState(preset);
+    try {
+      localStorage.setItem('desktop_overlay_scale_preset', preset);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--widget-scale', String(widgetScale));
+    }
+  }, [widgetScale]);
 
   const setGlassSettings = useCallback((newSettings: Partial<GlassSettings>) => {
     setGlassSettingsState((prev) => {
@@ -311,13 +372,36 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       togglePin,
       glassSettings,
       setGlassSettings,
+      widgetScale,
+      scalePreset,
+      setScalePreset,
       decideApproval,
       controlMedia,
       setVolume,
       toggleMute,
       killProcess,
     }),
-    [snapshot, mode, setMode, source, agentUrl, setAgentUrl, agentOnline, isPinned, togglePin, glassSettings, setGlassSettings, decideApproval, controlMedia, setVolume, toggleMute, killProcess]
+    [
+      snapshot,
+      mode,
+      setMode,
+      source,
+      agentUrl,
+      setAgentUrl,
+      agentOnline,
+      isPinned,
+      togglePin,
+      glassSettings,
+      setGlassSettings,
+      widgetScale,
+      scalePreset,
+      setScalePreset,
+      decideApproval,
+      controlMedia,
+      setVolume,
+      toggleMute,
+      killProcess,
+    ]
   );
 
   return <TelemetryContext.Provider value={value}>{children}</TelemetryContext.Provider>;

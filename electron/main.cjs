@@ -1,20 +1,31 @@
 const electron = require('electron');
 
-// Auto-fallback: If executed with ELECTRON_RUN_AS_NODE or by Node directly
-if (typeof electron === 'string' || process.env.ELECTRON_RUN_AS_NODE) {
+// Auto-fallback: If executed by Node directly instead of Electron binary
+if (typeof electron === 'string') {
   const { spawn } = require('child_process');
   const path = require('path');
   const projectRoot = path.join(__dirname, '..');
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
-  const execPath = typeof electron === 'string' ? electron : process.execPath;
-  const child = spawn(execPath, [projectRoot], { env, stdio: 'ignore', windowsHide: false, detached: true });
+  delete env.electron_run_as_node;
+  const child = spawn(electron, [projectRoot], { env, stdio: 'ignore', windowsHide: false, detached: true });
   child.unref();
   process.exit(0);
 }
 
+delete process.env.ELECTRON_RUN_AS_NODE;
+delete process.env.electron_run_as_node;
+
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
+
+// Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+}
+
 const koffi = require('koffi');
 const { getSystemTelemetry } = require('./telemetry.cjs');
 const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
@@ -29,6 +40,8 @@ const SetWindowPos = user32.func('bool SetWindowPos(intptr_t hWnd, intptr_t hWnd
 const SHELL_DESKTOP_CLASSES = new Set([
   'Progman',                     // Windows Desktop Shell
   'WorkerW',                    // Desktop Wallpaper Host (Win 10/11)
+  'SHELLDLL_DefView',           // Desktop Icon Container View
+  'SysListView32',              // Desktop Icons List
   'Shell_TrayWnd',              // Primary Taskbar
   'Shell_SecondaryTrayWnd',     // Multi-Monitor Taskbars
   'Windows.UI.Core.CoreWindow', // Windows 11 Start Menu / Action Center
@@ -60,13 +73,6 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
-
-// Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
-const gotTheLock = app.requestSingleInstanceLock();
-if (!gotTheLock) {
-  app.quit();
-  process.exit(0);
-}
 
 let desktopWin = null;
 let islandWin = null;
@@ -127,7 +133,7 @@ function createDesktopWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    minimizable: true,
+    minimizable: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -143,9 +149,8 @@ function createDesktopWindow() {
 
   desktopWin.once('ready-to-show', () => {
     if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
-      desktopWin.show();
-      // Initially send to bottom of Z-order so foreground apps have full focus
-      sendDesktopToBottom();
+      desktopWin.showInactive();
+      if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
     }
   });
 
@@ -157,12 +162,12 @@ function createDesktopWindow() {
       desktopWin.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
         const cmd = wParam.readUInt32LE(0) & 0xfff0;
         if (cmd === SC_MINIMIZE && isDesktopVisible) {
-          [60, 180, 350].forEach((delay) => {
+          [50, 150].forEach((delay) => {
             setTimeout(() => {
               if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
                 if (desktopWin.isMinimized()) desktopWin.restore();
-                desktopWin.show();
-                desktopWin.setAlwaysOnTop(true, 'floating');
+                desktopWin.showInactive();
+                if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
               }
             }, delay);
           });
@@ -175,12 +180,12 @@ function createDesktopWindow() {
   desktopWin.on('minimize', (e) => {
     e.preventDefault();
     if (!isDesktopVisible) return;
-    [60, 180, 350].forEach((delay) => {
+    [50, 150].forEach((delay) => {
       setTimeout(() => {
         if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
           if (desktopWin.isMinimized()) desktopWin.restore();
-          desktopWin.show();
-          desktopWin.setAlwaysOnTop(true, 'floating');
+          desktopWin.showInactive();
+          if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
         }
       }, delay);
     });
@@ -264,15 +269,14 @@ function checkActiveFocus() {
   if (isDesktop !== lastDesktopState) {
     lastDesktopState = isDesktop;
     if (isDesktop) {
-      // User is on desktop wallpaper or taskbar: bring widgets above wallpaper
-      desktopWin.setAlwaysOnTop(true, 'floating');
+      // User is on desktop wallpaper, desktop icons, or taskbar
       if (desktopWin.isMinimized()) desktopWin.restore();
       if (!desktopWin.isVisible()) desktopWin.showInactive();
+      desktopWin.setAlwaysOnTop(false);
     } else {
       // User is in a real application (VS Code, Chrome, Word, etc.):
-      // DROP BEHIND APPLICATION IMMEDIATELY
+      // Keep desktop window below normal applications
       desktopWin.setAlwaysOnTop(false);
-      sendDesktopToBottom();
     }
   }
 }
@@ -284,8 +288,8 @@ function startTelemetryBroadcast() {
     // Periodic safeguard: auto-recover if Windows silently minimized desktop widgets
     if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed() && desktopWin.isMinimized()) {
       desktopWin.restore();
-      desktopWin.show();
-      if (isAlwaysOnTop || lastDesktopState) desktopWin.setAlwaysOnTop(true, 'floating');
+      desktopWin.showInactive();
+      if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
     }
 
     const data = await getSystemTelemetry();
@@ -311,12 +315,11 @@ function toggleDesktopWidgets(forceState) {
   }
   if (isDesktopVisible) {
     if (desktopWin.isMinimized()) desktopWin.restore();
-    desktopWin.show();
-    if (isAlwaysOnTop || lastDesktopState) {
+    desktopWin.showInactive();
+    if (isAlwaysOnTop) {
       desktopWin.setAlwaysOnTop(true, 'floating');
     } else {
       desktopWin.setAlwaysOnTop(false);
-      sendDesktopToBottom();
     }
   } else {
     desktopWin.hide();
