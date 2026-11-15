@@ -39,17 +39,16 @@ export const FloatingHUD: React.FC = () => {
       {/* Floating Dynamic Island Pinned Above All Windows */}
       <div className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center select-none pointer-events-none">
         <motion.div
-          layout
           initial={false}
           animate={{
-            width: expanded ? 380 : media.isPlaying ? 218 : 172,
-            height: expanded ? 232 : 34,
-            borderRadius: expanded ? 28 : 9999,
+            width: expanded ? 364 : media.isPlaying ? 208 : 164,
+            height: expanded ? 222 : 32,
+            borderRadius: expanded ? 26 : 9999,
           }}
           transition={{
             type: 'spring',
-            stiffness: 380,
-            damping: 28,
+            stiffness: 420,
+            damping: 32,
             mass: 0.8,
           }}
           data-interactive="true"
@@ -72,10 +71,10 @@ export const FloatingHUD: React.FC = () => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.12 }}
-                className="w-full h-[34px] px-2.5 py-1 flex items-center justify-between gap-2"
+                className="w-full h-[32px] px-2.5 py-1 flex items-center justify-between gap-1.5"
               >
                 {/* Album Art / Music Icon */}
-                <div className="w-5 h-5 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center border border-white/10">
+                <div className="w-4.5 h-4.5 rounded-full bg-white/10 overflow-hidden shrink-0 flex items-center justify-center border border-white/10">
                   {media.albumArtUrl ? (
                     <img src={media.albumArtUrl} alt="Art" className="w-full h-full object-cover" />
                   ) : (

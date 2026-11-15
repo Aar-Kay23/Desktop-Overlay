@@ -57,7 +57,7 @@ export const CircularGauge: React.FC<CircularGaugeProps> = ({
   return (
     <div className={cn('relative flex flex-col items-center justify-center', className)}>
       <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="transform -rotate-90">
+        <svg width={size} height={size} className="transform -rotate-90 overflow-visible">
           <defs>
             <linearGradient id="gauge-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#06b6d4" />

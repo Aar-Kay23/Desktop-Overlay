@@ -3,7 +3,7 @@ import { BatteryCharging, Battery, Zap, ShieldCheck } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import type { WidgetProps } from '../../types/widgets';
 
-export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
+export const BatteryWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const battery = snapshot.battery || {
     hasBattery: true,
@@ -31,7 +31,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
       {size === 'S' && (
         <div className="flex flex-col items-center justify-center flex-1 py-1">
           <div className="relative flex items-center justify-center">
-            <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg]">
+            <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg] overflow-visible">
               <circle
                 cx={radius + stroke}
                 cy={radius + stroke}
@@ -74,7 +74,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
         <div className="flex items-center justify-between flex-1 gap-4 py-0.5">
           {/* Ring */}
           <div className="relative flex items-center justify-center shrink-0">
-            <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg]">
+            <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg] overflow-visible">
               <circle
                 cx={radius + stroke}
                 cy={radius + stroke}
@@ -143,7 +143,7 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
           {/* Top section: Big Ring & Headline */}
           <div className="flex items-center justify-around gap-4">
             <div className="relative flex items-center justify-center">
-              <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg]">
+              <svg width={(radius + stroke) * 2} height={(radius + stroke) * 2} className="rotate-[-90deg] overflow-visible">
                 <circle
                   cx={radius + stroke}
                   cy={radius + stroke}
@@ -240,5 +240,5 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
       )}
     </div>
   );
-};
+});
 

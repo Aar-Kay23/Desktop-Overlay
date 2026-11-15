@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import type { WidgetProps } from '../../types/widgets';
 
-export const ClockWidget: React.FC<WidgetProps> = ({ size }) => {
+export const ClockWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const [now, setNow] = useState(new Date());
 
@@ -162,5 +162,5 @@ export const ClockWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

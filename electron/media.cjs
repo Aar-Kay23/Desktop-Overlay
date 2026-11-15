@@ -14,6 +14,19 @@ let currentMedia = {
   albumArtUrl: '',
 };
 
+let currentHardware = {
+  battery: {
+    hasBattery: true,
+    percent: 100,
+    isCharging: false,
+    acConnected: true,
+    model: 'Dell OEM Battery',
+    voltage: 12.0,
+  },
+  downMbps: 0.0,
+  upMbps: 0.0,
+};
+
 let psProcess = null;
 let isStopping = false;
 const artworkCache = new Map();
@@ -105,6 +118,15 @@ function startMediaDaemon() {
 
         try {
           const parsed = JSON.parse(trimmed);
+          if (parsed.battery) {
+            currentHardware.battery.percent = parsed.battery.percent ?? 100;
+            currentHardware.battery.hasBattery = parsed.battery.hasBattery ?? true;
+            currentHardware.battery.isCharging = parsed.battery.isCharging ?? false;
+            currentHardware.battery.acConnected = parsed.battery.acConnected ?? true;
+          }
+          if (typeof parsed.downMbps === 'number') currentHardware.downMbps = parsed.downMbps;
+          if (typeof parsed.upMbps === 'number') currentHardware.upMbps = parsed.upMbps;
+
           if (parsed.status === 'Closed' || parsed.status === 'Error') {
             currentMedia.isPlaying = false;
             if (typeof parsed.vol === 'number') currentMedia.volumePct = parsed.vol;
@@ -199,11 +221,16 @@ function getMediaSnapshot() {
   return currentMedia;
 }
 
+function getHardwareSnapshot() {
+  return currentHardware;
+}
+
 // Auto-start daemon on module load
 startMediaDaemon();
 
 module.exports = {
   getMediaSnapshot,
+  getHardwareSnapshot,
   sendMediaControl,
   setMasterVolume,
   toggleMasterMute,

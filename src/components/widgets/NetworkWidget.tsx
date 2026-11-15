@@ -4,7 +4,7 @@ import { useTelemetry } from '../../context/TelemetryContext';
 import { Sparkline } from '../ui/Sparkline';
 import type { WidgetProps } from '../../types/widgets';
 
-export const NetworkWidget: React.FC<WidgetProps> = ({ size }) => {
+export const NetworkWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { network } = snapshot;
 
@@ -36,7 +36,7 @@ export const NetworkWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'M') {
     return (
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 flex flex-col justify-between pb-0.5">
         <div className="flex items-baseline justify-between">
           <div className="flex items-center gap-3">
             <div className="flex items-baseline gap-1">
@@ -60,10 +60,10 @@ export const NetworkWidget: React.FC<WidgetProps> = ({ size }) => {
         </div>
 
         <div className="my-0.5">
-          <Sparkline data={network.historyDown} color="cyan" height={28} />
+          <Sparkline data={network.historyDown} color="cyan" height={24} />
         </div>
 
-        <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+        <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
           <span>Active Interface</span>
           <span className="flex items-center gap-1 text-slate-300">
             <Wifi className="w-2.5 h-2.5 text-emerald-400" /> Connected
@@ -118,5 +118,5 @@ export const NetworkWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

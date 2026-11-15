@@ -22,6 +22,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
   });
 
   const [showGlassModal, setShowGlassModal] = useState<boolean>(false);
+  const [alignVersion, setAlignVersion] = useState<number>(0);
 
   const [widgets, setWidgets] = useState<WidgetInstance[]>(() => {
     try {
@@ -133,6 +134,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
         return match ? { ...w, position: { x: match.x, y: match.y } } : w;
       })
     );
+    setAlignVersion((v) => v + 1);
   };
 
   const handleResetLayout = () => {
@@ -146,6 +148,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
         };
       })
     );
+    setAlignVersion((v) => v + 1);
   };
 
   return (
@@ -347,7 +350,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
 
             return (
               <motion.div
-                key={widget.id}
+                key={`${widget.id}-${alignVersion}`}
                 drag
                 dragMomentum={false}
                 dragElastic={0.06}

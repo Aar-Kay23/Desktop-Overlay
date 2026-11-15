@@ -208,9 +208,10 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [connector, source]);
 
-  // Simulation mode loop: advances mock data smoothly every 1000ms
+  // Simulation mode loop: advances mock data smoothly every 1000ms ONLY when not running in Electron
   useEffect(() => {
-    if (source !== 'simulation') return;
+    const isElectron = typeof window !== 'undefined' && Boolean((window as any).electronAPI);
+    if (source !== 'simulation' || isElectron) return;
 
     const interval = setInterval(() => {
       setSnapshot((prev) => advanceMockStep(prev));

@@ -6,7 +6,7 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { formatMegabytes } from '../../lib/utils';
 import type { WidgetProps } from '../../types/widgets';
 
-export const MemoryWidget: React.FC<WidgetProps> = ({ size }) => {
+export const MemoryWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { memory, topProcesses } = snapshot;
 
@@ -29,24 +29,24 @@ export const MemoryWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'M') {
     return (
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 flex flex-col justify-between pb-0.5">
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold tracking-tight text-white">
+            <span className="text-xl font-bold tracking-tight text-white font-mono">
               {Math.round(memory.pct)}
             </span>
             <span className="text-xs text-slate-400 font-medium">% RAM</span>
           </div>
-          <span className="text-xs font-mono text-slate-400">
+          <span className="text-[11px] font-mono text-slate-400">
             {formatMegabytes(memory.usedMb)} / {formatMegabytes(memory.totalMb)}
           </span>
         </div>
 
         <div className="my-0.5">
-          <Sparkline data={memory.history} color="violet" height={28} />
+          <Sparkline data={memory.history} color="violet" height={24} />
         </div>
 
-        <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+        <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
           <span>{freeGb} GB Available</span>
           <span>Swap: {memory.swapUsedMb ? formatMegabytes(memory.swapUsedMb) : '0 MB'}</span>
         </div>
@@ -125,5 +125,5 @@ export const MemoryWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

@@ -4,7 +4,7 @@ import { CircularGauge } from '../ui/CircularGauge';
 import { ProgressBar } from '../ui/ProgressBar';
 import type { WidgetProps } from '../../types/widgets';
 
-export const StorageWidget: React.FC<WidgetProps> = ({ size }) => {
+export const StorageWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { disks } = snapshot;
 
@@ -95,5 +95,5 @@ export const StorageWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

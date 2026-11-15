@@ -55,7 +55,7 @@ function createWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    minimizable: true,
+    minimizable: false,
     type: 'toolbar', // WS_EX_TOOLWINDOW style on Windows
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -158,7 +158,7 @@ function startTelemetryBroadcast() {
         win.webContents.send('telemetry:update', data);
       }
     }
-  }, 1500);
+  }, 2000);
 }
 
 function bringToFront() {
@@ -171,9 +171,15 @@ function bringToFront() {
     win.restore();
   }
   win.show();
+  // Force foreground layer activation: briefly elevate to top then restore user's preferred z-order
+  win.setAlwaysOnTop(true, 'floating');
   win.focus();
-  if (isAlwaysOnTop) {
-    win.setAlwaysOnTop(true, 'floating');
+  if (!isAlwaysOnTop) {
+    setTimeout(() => {
+      if (win && !win.isDestroyed() && !isAlwaysOnTop) {
+        win.setAlwaysOnTop(false);
+      }
+    }, 250);
   }
 }
 

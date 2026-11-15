@@ -25,12 +25,12 @@ const OverlayContent: React.FC = () => {
         isSolidDashboard ? 'bg-[#07090e]' : 'bg-transparent pointer-events-none'
       }`}
     >
-      {/* Ambient background glows for solid dashboard mode only */}
+      {/* Ambient background glows for solid dashboard mode only (GPU-friendly radial gradients, 0 blur filter overhead) */}
       {isSolidDashboard && (
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-          <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/[0.07] rounded-full blur-[120px]" />
-          <div className="absolute top-1/3 -right-40 w-96 h-96 bg-violet-500/[0.06] rounded-full blur-[140px]" />
-          <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-emerald-500/[0.05] rounded-full blur-[130px]" />
+          <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[radial-gradient(circle,rgba(6,182,212,0.12)_0%,transparent_70%)]" />
+          <div className="absolute top-1/3 -right-40 w-96 h-96 rounded-full bg-[radial-gradient(circle,rgba(139,92,246,0.10)_0%,transparent_70%)]" />
+          <div className="absolute -bottom-40 left-1/3 w-96 h-96 rounded-full bg-[radial-gradient(circle,rgba(16,185,129,0.08)_0%,transparent_70%)]" />
           <div
             className="absolute inset-0 opacity-[0.03]"
             style={{

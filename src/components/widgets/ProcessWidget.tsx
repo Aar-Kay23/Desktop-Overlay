@@ -4,7 +4,7 @@ import { useTelemetry } from '../../context/TelemetryContext';
 import { formatMegabytes } from '../../lib/utils';
 import type { WidgetProps } from '../../types/widgets';
 
-export const ProcessWidget: React.FC<WidgetProps> = ({ size }) => {
+export const ProcessWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot, killProcess } = useTelemetry();
   const { topProcesses } = snapshot;
 
@@ -86,5 +86,5 @@ export const ProcessWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

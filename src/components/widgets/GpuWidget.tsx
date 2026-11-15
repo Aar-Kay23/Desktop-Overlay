@@ -6,7 +6,7 @@ import { ProgressBar } from '../ui/ProgressBar';
 import { formatMegabytes } from '../../lib/utils';
 import type { WidgetProps } from '../../types/widgets';
 
-export const GpuWidget: React.FC<WidgetProps> = ({ size }) => {
+export const GpuWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { gpu } = snapshot;
 
@@ -29,28 +29,28 @@ export const GpuWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'M') {
     return (
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 flex flex-col justify-between pb-0.5">
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold tracking-tight text-white">
+            <span className="text-xl font-bold tracking-tight text-white font-mono">
               {Math.round(gpu.loadPct)}
             </span>
             <span className="text-xs text-slate-400 font-medium">% GPU</span>
           </div>
-          <div className="text-xs font-mono text-slate-400">
+          <div className="text-[11px] font-mono text-slate-400">
             {formatMegabytes(gpu.vramUsedMb)} / {formatMegabytes(gpu.vramTotalMb)}
           </div>
         </div>
 
         <div className="my-0.5">
-          <Sparkline data={gpu.history} color="emerald" height={28} />
+          <Sparkline data={gpu.history} color="emerald" height={22} />
         </div>
 
         <div className="flex flex-col gap-1">
-          <ProgressBar value={vramPct} color="emerald" height={4} />
-          <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
-            <span className="truncate max-w-[200px]">{gpu.name}</span>
-            <span>{gpu.tempC || 54}°C</span>
+          <ProgressBar value={vramPct} color="emerald" height={3.5} />
+          <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+            <span className="truncate max-w-[210px]">{gpu.name}</span>
+            <span className="text-slate-300 font-semibold">{gpu.tempC || 54}°C</span>
           </div>
         </div>
       </div>
@@ -109,5 +109,5 @@ export const GpuWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});
 

@@ -4,7 +4,7 @@
   :root {
     --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
     --glass-opacity: 0.65;
-    --glass-blur: 28px;
+    --glass-blur: 14px;
     --glass-border-opacity: 0.09;
   }
 
@@ -20,15 +20,17 @@
   }
 }
 
-/* macOS Sonoma / Sequoia Glass Surfaces (Minimal, Custom Opacity & Blur) */
+/* macOS Sonoma / Sequoia Glass Surfaces (Hardware Isolated, GPU Optimized) */
 .macos-glass, .glass-panel, .glass-card {
   background: rgba(18, 20, 26, var(--glass-opacity, 0.65));
-  backdrop-filter: blur(var(--glass-blur, 28px)) saturate(180%);
-  -webkit-backdrop-filter: blur(var(--glass-blur, 28px)) saturate(180%);
+  backdrop-filter: blur(var(--glass-blur, 14px)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 14px)) saturate(180%);
   border: 1px solid rgba(255, 255, 255, var(--glass-border-opacity, 0.09));
   box-shadow: 
     0 16px 36px -8px rgba(0, 0, 0, 0.45),
     inset 0 1px 1px 0 rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.09) * 1.3));
+  contain: paint layout;
+  transform: translateZ(0);
 }
 
 .macos-squircle {

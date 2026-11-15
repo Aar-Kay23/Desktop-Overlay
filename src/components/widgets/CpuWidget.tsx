@@ -4,7 +4,7 @@ import { CircularGauge } from '../ui/CircularGauge';
 import { Sparkline } from '../ui/Sparkline';
 import type { WidgetProps } from '../../types/widgets';
 
-export const CpuWidget: React.FC<WidgetProps> = ({ size }) => {
+export const CpuWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { cpu, topProcesses } = snapshot;
 
@@ -63,25 +63,25 @@ export const CpuWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'M') {
     return (
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 flex flex-col justify-between pb-0.5">
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-bold tracking-tight text-white">
+            <span className="text-xl font-bold tracking-tight text-white font-mono">
               {Math.round(cpu.loadPct)}
             </span>
             <span className="text-xs text-slate-400 font-medium">% Load</span>
           </div>
           <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
             {cpu.freqGhz && <span>{cpu.freqGhz.toFixed(2)} GHz</span>}
-            {cpu.tempC && <span className="text-slate-300">{cpu.tempC}°C</span>}
+            {cpu.tempC && <span className="text-slate-300 font-semibold">{cpu.tempC}°C</span>}
           </div>
         </div>
 
         <div className="my-0.5">
-          <Sparkline data={cpu.history} color="cyan" height={28} />
+          <Sparkline data={cpu.history} color="cyan" height={24} />
         </div>
 
-        <div className="flex justify-between items-center text-[10px] text-slate-500 font-mono">
+        <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
           <span>Active Core Average</span>
           <span>{cpu.cores?.length || 8} Cores</span>
         </div>
@@ -151,4 +151,4 @@ export const CpuWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});

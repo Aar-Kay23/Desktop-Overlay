@@ -8,7 +8,7 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  const { source, setSource, agentOnline, agentUrl, setAgentUrl } = useTelemetry();
+  const { source, setSource, agentOnline, agentUrl, setAgentUrl, glassSettings, setGlassSettings } = useTelemetry();
   const [localUrl, setLocalUrl] = useState(agentUrl);
   const [saved, setSaved] = useState(false);
 
@@ -91,6 +91,65 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               >
                 Simulation Demo
               </button>
+            </div>
+          </div>
+
+          {/* Glassmorphism & Appearance */}
+          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 flex flex-col gap-3">
+            <span className="text-slate-200 font-semibold flex items-center gap-1.5 text-xs">
+              <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+              Glassmorphism & Appearance
+            </span>
+
+            {/* Opacity */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[11px] text-slate-300">
+                <span>Glass Opacity (Wall Penetration)</span>
+                <span className="font-mono text-emerald-400">{Math.round(glassSettings.opacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.15"
+                max="0.95"
+                step="0.05"
+                value={glassSettings.opacity}
+                onChange={(e) => setGlassSettings({ opacity: parseFloat(e.target.value) })}
+                className="w-full h-1.5 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+              />
+            </div>
+
+            {/* Blur */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[11px] text-slate-300">
+                <span>Blur Strength</span>
+                <span className="font-mono text-emerald-400">{glassSettings.blur}px</span>
+              </div>
+              <input
+                type="range"
+                min="8"
+                max="40"
+                step="2"
+                value={glassSettings.blur}
+                onChange={(e) => setGlassSettings({ blur: parseInt(e.target.value, 10) })}
+                className="w-full h-1.5 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+              />
+            </div>
+
+            {/* Border Glow */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-[11px] text-slate-300">
+                <span>Edge Highlight / Border Glow</span>
+                <span className="font-mono text-emerald-400">{Math.round(glassSettings.borderOpacity * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min="0.04"
+                max="0.30"
+                step="0.02"
+                value={glassSettings.borderOpacity}
+                onChange={(e) => setGlassSettings({ borderOpacity: parseFloat(e.target.value) })}
+                className="w-full h-1.5 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+              />
             </div>
           </div>
 

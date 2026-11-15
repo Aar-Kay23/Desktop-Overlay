@@ -5,7 +5,7 @@ import { CircularGauge } from '../ui/CircularGauge';
 import { ProgressBar } from '../ui/ProgressBar';
 import type { WidgetProps } from '../../types/widgets';
 
-export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
+export const AiQuotaWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot } = useTelemetry();
   const { quotas } = snapshot;
 
@@ -88,7 +88,7 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'M') {
     return (
-      <div className="flex-1 flex flex-col justify-between">
+      <div className="flex-1 flex flex-col justify-between pb-0.5">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-1.5 mb-0.5">
@@ -108,13 +108,13 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5 my-auto">
+        <div className="flex flex-col gap-1.5 my-1">
           <div className="flex flex-col gap-0.5">
             <div className="flex justify-between text-[11px] font-mono">
               <span className="text-slate-400">5h Burst Limit</span>
               <span className="text-white font-semibold">{Math.round(primary.sessionLimit.usedPct)}%</span>
             </div>
-            <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={4} />
+            <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={3.5} />
           </div>
 
           <div className="flex flex-col gap-0.5">
@@ -122,13 +122,13 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
               <span className="text-slate-400">Weekly Pool</span>
               <span className="text-slate-300">{Math.round(primary.weeklyLimit.usedPct)}%</span>
             </div>
-            <ProgressBar value={primary.weeklyLimit.usedPct} color="violet" height={4} />
+            <ProgressBar value={primary.weeklyLimit.usedPct} color="violet" height={3.5} />
           </div>
         </div>
 
         {primary.sessionLimit.resetsInHours && (
-          <div className="flex justify-end items-center text-[10px] text-slate-500 font-mono gap-1">
-            <Clock className="w-2.5 h-2.5" />
+          <div className="flex justify-end items-center text-[10px] text-slate-400 font-mono gap-1">
+            <Clock className="w-2.5 h-2.5 text-slate-500" />
             <span>Resets in {primary.sessionLimit.resetsInHours}h</span>
           </div>
         )}
@@ -181,4 +181,4 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});

@@ -78,6 +78,53 @@ public class AudioMasterControl {
     }
 }
 
+public class NativeHardware {
+    [StructLayout(LayoutKind.Sequential)]
+    public struct SYSTEM_POWER_STATUS {
+        public byte ACLineStatus;
+        public byte BatteryFlag;
+        public byte BatteryLifePercent;
+        public byte SystemStatusFlag;
+        public int BatteryLifeTime;
+        public int BatteryFullLifeTime;
+    }
+
+    [DllImport("kernel32.dll")]
+    public static extern bool GetSystemPowerStatus(out SYSTEM_POWER_STATUS sps);
+
+    public static int GetBatteryPercent() {
+        SYSTEM_POWER_STATUS s;
+        if (GetSystemPowerStatus(out s)) {
+            return s.BatteryLifePercent == 255 ? 100 : (int)s.BatteryLifePercent;
+        }
+        return 100;
+    }
+
+    public static bool IsAC() {
+        SYSTEM_POWER_STATUS s;
+        if (GetSystemPowerStatus(out s)) {
+            return s.ACLineStatus == 1;
+        }
+        return true;
+    }
+
+    public static bool HasBattery() {
+        SYSTEM_POWER_STATUS s;
+        if (GetSystemPowerStatus(out s)) {
+            return s.BatteryFlag != 128 && s.BatteryFlag != 255;
+        }
+        return false;
+    }
+
+    public static bool IsCharging() {
+        SYSTEM_POWER_STATUS s;
+        if (GetSystemPowerStatus(out s)) {
+            return (s.BatteryFlag & 8) != 0;
+        }
+        return false;
+    }
+}
+
 public class StdinCommandListener {
     public static void Start() {
         Thread t = new Thread(new ThreadStart(delegate() {
@@ -131,10 +178,50 @@ Function AwaitMediaProps($WinRtTask) {
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+$prevNetRx = [long]0
+$prevNetTx = [long]0
+$prevNetTime = [System.Diagnostics.Stopwatch]::GetTimestamp()
+
 while ($true) {
     try {
         $vol = [Math]::Round([AudioMasterControl]::GetVolume())
         $muted = [AudioMasterControl]::GetMute()
+
+        # In-memory network stats (0ms, 0 processes)
+        $curRx = [long]0
+        $curTx = [long]0
+        foreach ($nic in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+            if ($nic.OperationalStatus -eq 'Up' -and $nic.NetworkInterfaceType -ne 'Loopback') {
+                try {
+                    $stats = $nic.GetIPv4Statistics()
+                    $curRx += $stats.BytesReceived
+                    $curTx += $stats.BytesSent
+                } catch {}
+            }
+        }
+
+        $nowTime = [System.Diagnostics.Stopwatch]::GetTimestamp()
+        $elapsedSec = ($nowTime - $prevNetTime) / [System.Diagnostics.Stopwatch]::Frequency
+        if ($elapsedSec -le 0) { $elapsedSec = 1.0 }
+
+        $downMbps = 0.0
+        $upMbps = 0.0
+        if ($prevNetRx -gt 0 -and $curRx -ge $prevNetRx) {
+            $downMbps = [Math]::Round((($curRx - $prevNetRx) * 8.0) / (1024 * 1024 * $elapsedSec), 1)
+        }
+        if ($prevNetTx -gt 0 -and $curTx -ge $prevNetTx) {
+            $upMbps = [Math]::Round((($curTx - $prevNetTx) * 8.0) / (1024 * 1024 * $elapsedSec), 1)
+        }
+
+        $prevNetRx = $curRx
+        $prevNetTx = $curTx
+        $prevNetTime = $nowTime
+
+        # In-memory battery status (0ms, 0 processes)
+        $batPct = [NativeHardware]::GetBatteryPercent()
+        $ac = [NativeHardware]::IsAC()
+        $hasBat = [NativeHardware]::HasBattery()
+        $charging = [NativeHardware]::IsCharging()
 
         $session = $mgr.GetCurrentSession()
         if ($session) {
@@ -156,6 +243,14 @@ while ($true) {
                 durSec = $dur
                 vol = $vol
                 muted = $muted
+                downMbps = $downMbps
+                upMbps = $upMbps
+                battery = [PSCustomObject]@{
+                    acConnected = $ac
+                    percent = $batPct
+                    hasBattery = $hasBat
+                    isCharging = $charging
+                }
             }
             $json = $data | ConvertTo-Json -Compress
             [Console]::WriteLine($json)
@@ -164,6 +259,14 @@ while ($true) {
                 status = "Closed"
                 vol = $vol
                 muted = $muted
+                downMbps = $downMbps
+                upMbps = $upMbps
+                battery = [PSCustomObject]@{
+                    acConnected = $ac
+                    percent = $batPct
+                    hasBattery = $hasBat
+                    isCharging = $charging
+                }
             }
             $json = $data | ConvertTo-Json -Compress
             [Console]::WriteLine($json)
@@ -171,6 +274,5 @@ while ($true) {
     } catch {
         [Console]::WriteLine('{"status":"Error"}')
     }
-    Start-Sleep -Milliseconds 800
+    Start-Sleep -Milliseconds 1000
 }
-

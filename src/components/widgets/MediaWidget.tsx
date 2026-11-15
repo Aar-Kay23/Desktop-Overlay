@@ -4,7 +4,7 @@ import { useTelemetry } from '../../context/TelemetryContext';
 import { formatDuration } from '../../lib/utils';
 import type { WidgetProps } from '../../types/widgets';
 
-export const MediaWidget: React.FC<WidgetProps> = ({ size }) => {
+export const MediaWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const { snapshot, controlMedia, setVolume, toggleMute } = useTelemetry();
   const { media } = snapshot;
 
@@ -215,4 +215,4 @@ export const MediaWidget: React.FC<WidgetProps> = ({ size }) => {
       </div>
     </div>
   );
-};
+});

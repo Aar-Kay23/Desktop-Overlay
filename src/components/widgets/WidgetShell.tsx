@@ -15,11 +15,11 @@ interface WidgetShellProps {
   badge?: React.ReactNode;
 }
 
-export const WidgetShell: React.FC<WidgetShellProps> = ({
+export const WidgetShell: React.FC<WidgetShellProps> = React.memo(({
   title,
   icon,
   size,
-  supportedSizes = ['S', 'M', 'V', 'L'],
+  supportedSizes = ['S', 'M', 'V', 'L'] as WidgetSize[],
   onResize,
   onRemove,
   editMode = false,
@@ -29,8 +29,8 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
   // Dimension and grid span mapping
   const sizeClasses = {
     S: 'w-[164px] h-[164px] p-3.5',
-    M: 'w-[344px] h-[164px] pt-2.5 pb-2.5 px-3.5',
-    V: 'w-[164px] h-[344px] pt-3 pb-3 px-3.5',
+    M: 'w-[344px] h-[164px] pt-2 pb-2.5 px-3.5',
+    V: 'w-[164px] h-[344px] pt-2.5 pb-2.5 px-3.5',
     L: 'w-[344px] h-[344px] p-4',
   };
 
@@ -42,7 +42,7 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
       } ${editMode ? 'ring-1 ring-white/20 shadow-2xl' : 'hover:shadow-xl'}`}
     >
       {/* Top Header & Drag Handle */}
-      <div className="flex items-center justify-between gap-1.5 mb-1.5 shrink-0 cursor-grab active:cursor-grabbing">
+      <div className="flex items-center justify-between gap-1.5 mb-1 shrink-0 cursor-grab active:cursor-grabbing">
         <div className="flex items-center gap-1.5 min-w-0">
           <GripVertical className="w-3.5 h-3.5 text-white/20 group-hover:text-white/50 transition-colors shrink-0" />
           <div className="w-5 h-5 rounded-md bg-white/[0.08] flex items-center justify-center text-slate-300 shrink-0">
@@ -99,10 +99,10 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
       </div>
 
       {/* Widget Content Body */}
-      <div className="flex-1 flex flex-col justify-between min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col justify-between min-h-0 overflow-hidden pb-0.5">
         {children}
       </div>
     </div>
   );
-};
+});
 
