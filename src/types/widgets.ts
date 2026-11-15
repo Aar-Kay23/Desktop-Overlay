@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 
-export type WidgetSize = 'S' | 'M' | 'L';
+export type WidgetSize = 'S' | 'M' | 'V' | 'L';
 
 export type WidgetType =
   | 'cpu'
@@ -12,7 +12,11 @@ export type WidgetType =
   | 'ai-quota'
   | 'media'
   | 'processes'
-  | 'clock';
+  | 'clock'
+  | 'weather'
+  | 'notes'
+  | 'world-clock'
+  | 'quick-actions';
 
 export interface WidgetPosition {
   x: number;
@@ -34,7 +38,7 @@ export interface WidgetDefinition {
   type: WidgetType;
   title: string;
   description: string;
-  category: 'System' | 'AI & Dev' | 'Media & Info';
+  category: 'System' | 'AI & Dev' | 'Media & Info' | 'Productivity';
   supportedSizes: WidgetSize[];
   defaultSize: WidgetSize;
   component: ComponentType<WidgetProps>;

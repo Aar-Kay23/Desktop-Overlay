@@ -30,6 +30,47 @@ export const ClockWidget: React.FC<WidgetProps> = ({ size }) => {
     );
   }
 
+  if (size === 'V') {
+    return (
+      <div className="flex-1 flex flex-col justify-between py-2 text-center">
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            {dayName}
+          </span>
+          <div className="text-4xl font-extralight tracking-tighter text-white font-mono my-1">
+            {hours}
+            <span className="text-slate-500">:</span>
+            {minutes}
+          </div>
+          <div className="text-[11px] text-slate-300 font-medium">
+            {dateStr}, {now.getFullYear()}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2 my-2 py-2 border-y border-white/10 text-xs font-mono">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-400">Seconds</span>
+            <span className="text-white font-bold">{seconds}s</span>
+          </div>
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-400">Uptime</span>
+            <span className="text-white">{snapshot.uptimeHours}h</span>
+          </div>
+          <div className="flex justify-between items-center px-1">
+            <span className="text-slate-400">UTC</span>
+            <span className="text-slate-300">
+              {now.getUTCHours().toString().padStart(2, '0')}:{now.getUTCMinutes().toString().padStart(2, '0')}
+            </span>
+          </div>
+        </div>
+
+        <div className="px-2 py-1.5 rounded-xl bg-white/[0.04] text-[10px] text-slate-400 font-mono">
+          <span>{Intl.DateTimeFormat().resolvedOptions().timeZone}</span>
+        </div>
+      </div>
+    );
+  }
+
   if (size === 'M') {
     return (
       <div className="flex-1 flex flex-col justify-between">

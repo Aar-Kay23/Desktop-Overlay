@@ -1,5 +1,6 @@
 const si = require('systeminformation');
 const os = require('os');
+const { getMediaSnapshot } = require('./media.cjs');
 
 // Initial cached hardware specs
 let cachedGpu = null;
@@ -248,6 +249,7 @@ async function getSystemTelemetry() {
         historyUp,
       },
       battery: cachedBattery,
+      media: getMediaSnapshot(),
       topProcesses: cachedProcesses.length > 0 ? cachedProcesses : [
         { pid: 101, name: 'Antigravity IDE', cpuPct: 2.1, memMb: 340, instances: 1 },
         { pid: 102, name: 'Chrome', cpuPct: 1.8, memMb: 520, instances: 4 },

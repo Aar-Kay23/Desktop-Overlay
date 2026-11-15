@@ -41,8 +41,8 @@ const OverlayContent: React.FC = () => {
         </div>
       )}
 
-      {/* Top Header Bar shown for dashboard, sidebar, and HUD modes */}
-      {mode !== 'minibar' && mode !== 'canvas' && (
+      {/* Top Header Bar shown only for fixed dashboard and sidebar modes */}
+      {(mode === 'sidebar' || mode === 'dashboard') && (
         <div data-interactive="true" className="pointer-events-auto">
           <HeaderBar onOpenSettings={() => setSettingsOpen(true)} />
         </div>

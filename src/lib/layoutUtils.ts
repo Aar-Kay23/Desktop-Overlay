@@ -3,6 +3,7 @@ import type { WidgetSize } from '../types/widgets';
 export const WIDGET_DIMENSIONS: Record<WidgetSize, { width: number; height: number }> = {
   S: { width: 164, height: 164 },
   M: { width: 344, height: 164 },
+  V: { width: 164, height: 344 },
   L: { width: 344, height: 344 },
 };
 

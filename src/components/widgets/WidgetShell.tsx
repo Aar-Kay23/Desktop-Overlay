@@ -19,7 +19,7 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
   title,
   icon,
   size,
-  supportedSizes = ['S', 'M', 'L'],
+  supportedSizes = ['S', 'M', 'V', 'L'],
   onResize,
   onRemove,
   editMode = false,
@@ -30,6 +30,7 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
   const sizeClasses = {
     S: 'w-[164px] h-[164px] p-3.5',
     M: 'w-[344px] h-[164px] p-4',
+    V: 'w-[164px] h-[344px] p-4',
     L: 'w-[344px] h-[344px] p-4',
   };
 

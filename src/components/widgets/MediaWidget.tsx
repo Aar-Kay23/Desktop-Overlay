@@ -37,6 +37,49 @@ export const MediaWidget: React.FC<WidgetProps> = ({ size }) => {
     );
   }
 
+  if (size === 'V') {
+    return (
+      <div className="flex-1 flex flex-col justify-between py-2 text-center">
+        <div className="flex flex-col items-center my-auto">
+          <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex items-center justify-center shadow-lg mb-3">
+            {media.albumArtUrl ? (
+              <img src={media.albumArtUrl} alt="Art" className="w-full h-full object-cover" />
+            ) : (
+              <Music className="w-10 h-10 text-slate-400" />
+            )}
+          </div>
+          <h4 className="text-xs font-bold text-white max-w-[140px] truncate">{media.title || 'No Media'}</h4>
+          <p className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5">{media.artist || 'Idle'}</p>
+        </div>
+
+        <div className="flex flex-col gap-1.5 my-2">
+          <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+            <div className="bg-white/80 h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
+          </div>
+          <div className="flex justify-between text-[9px] font-mono text-slate-400">
+            <span>{formatDuration(media.positionSec)}</span>
+            <span>{formatDuration(media.durationSec)}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-3 pt-1 border-t border-white/10">
+          <button onClick={() => controlMedia('prev')} className="text-slate-400 hover:text-white cursor-pointer p-1">
+            <SkipBack className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => controlMedia('playpause')}
+            className="w-10 h-10 rounded-full bg-white text-slate-950 flex items-center justify-center cursor-pointer shadow-md transition-transform active:scale-95"
+          >
+            {media.isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+          </button>
+          <button onClick={() => controlMedia('next')} className="text-slate-400 hover:text-white cursor-pointer p-1">
+            <SkipForward className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (size === 'M') {
     return (
       <div className="flex-1 flex flex-col justify-between">

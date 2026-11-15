@@ -1,4 +1,19 @@
-import { Cpu, Zap, Database, HardDrive, Wifi, Sparkles, Music, Layers, Clock, BatteryCharging } from 'lucide-react';
+import {
+  Cpu,
+  Zap,
+  Database,
+  HardDrive,
+  Wifi,
+  Sparkles,
+  Music,
+  Layers,
+  Clock,
+  BatteryCharging,
+  CloudSun,
+  StickyNote,
+  Globe,
+  Sliders,
+} from 'lucide-react';
 import type { WidgetType, WidgetDefinition } from '../types/widgets';
 import { CpuWidget } from '../components/widgets/CpuWidget';
 import { GpuWidget } from '../components/widgets/GpuWidget';
@@ -10,6 +25,10 @@ import { AiQuotaWidget } from '../components/widgets/AiQuotaWidget';
 import { MediaWidget } from '../components/widgets/MediaWidget';
 import { ProcessWidget } from '../components/widgets/ProcessWidget';
 import { ClockWidget } from '../components/widgets/ClockWidget';
+import { WeatherWidget } from '../components/widgets/WeatherWidget';
+import { NotesWidget } from '../components/widgets/NotesWidget';
+import { WorldClockWidget } from '../components/widgets/WorldClockWidget';
+import { QuickActionsWidget } from '../components/widgets/QuickActionsWidget';
 
 export const WIDGET_CATALOG: Record<WidgetType, WidgetDefinition> = {
   cpu: {
@@ -17,7 +36,7 @@ export const WIDGET_CATALOG: Record<WidgetType, WidgetDefinition> = {
     title: 'Processor (CPU)',
     description: 'Real-time CPU aggregate utilization, clock frequency, per-core bars, and temperature.',
     category: 'System',
-    supportedSizes: ['S', 'M', 'L'],
+    supportedSizes: ['S', 'M', 'V', 'L'],
     defaultSize: 'M',
     component: CpuWidget,
   },
@@ -78,9 +97,9 @@ export const WIDGET_CATALOG: Record<WidgetType, WidgetDefinition> = {
   media: {
     type: 'media',
     title: 'Now Playing',
-    description: 'Currently playing audio track, album artwork, playback controls, and volume fader.',
+    description: 'Live synced Windows media session (Spotify, Chrome, Brave, VLC), artwork, and playback controls.',
     category: 'Media & Info',
-    supportedSizes: ['S', 'M', 'L'],
+    supportedSizes: ['S', 'M', 'V', 'L'],
     defaultSize: 'M',
     component: MediaWidget,
   },
@@ -96,11 +115,47 @@ export const WIDGET_CATALOG: Record<WidgetType, WidgetDefinition> = {
   clock: {
     type: 'clock',
     title: 'Clock & Time',
-    description: 'Minimalist Apple typography clock, system uptime, and global financial time zones.',
+    description: 'Minimalist Apple typography clock, system uptime, and calendar date.',
     category: 'Media & Info',
-    supportedSizes: ['S', 'M', 'L'],
+    supportedSizes: ['S', 'M', 'V', 'L'],
     defaultSize: 'S',
     component: ClockWidget,
+  },
+  weather: {
+    type: 'weather',
+    title: 'Weather & Forecast',
+    description: 'Live local weather, condition icons, temperatures, and hourly forecast strip via Open-Meteo.',
+    category: 'Media & Info',
+    supportedSizes: ['S', 'M', 'V', 'L'],
+    defaultSize: 'M',
+    component: WeatherWidget,
+  },
+  notes: {
+    type: 'notes',
+    title: 'Quick Scratchpad',
+    description: 'macOS frosted sticky note with instant auto-save to local storage for quick thoughts.',
+    category: 'Productivity',
+    supportedSizes: ['S', 'M', 'V', 'L'],
+    defaultSize: 'V',
+    component: NotesWidget,
+  },
+  'world-clock': {
+    type: 'world-clock',
+    title: 'World Clocks',
+    description: 'Multi-timezone global clock tracker (Local, London, New York, Tokyo) with Day/Night indicators.',
+    category: 'Media & Info',
+    supportedSizes: ['S', 'M', 'V', 'L'],
+    defaultSize: 'M',
+    component: WorldClockWidget,
+  },
+  'quick-actions': {
+    type: 'quick-actions',
+    title: 'Quick Actions',
+    description: 'Fast toggles for audio mute, PC lock, task manager launcher, and always-on-top.',
+    category: 'Productivity',
+    supportedSizes: ['S', 'M', 'V', 'L'],
+    defaultSize: 'S',
+    component: QuickActionsWidget,
   },
 };
 
@@ -115,15 +170,20 @@ export const WIDGET_ICONS: Record<WidgetType, typeof Cpu> = {
   media: Music,
   processes: Layers,
   clock: Clock,
+  weather: CloudSun,
+  notes: StickyNote,
+  'world-clock': Globe,
+  'quick-actions': Sliders,
 };
 
 export const DEFAULT_WIDGET_LAYOUT = [
   { id: 'def-1', type: 'clock' as WidgetType, size: 'S' as const },
-  { id: 'def-2', type: 'battery' as WidgetType, size: 'S' as const },
+  { id: 'def-2', type: 'weather' as WidgetType, size: 'S' as const },
   { id: 'def-3', type: 'cpu' as WidgetType, size: 'M' as const },
-  { id: 'def-4', type: 'memory' as WidgetType, size: 'S' as const },
-  { id: 'def-5', type: 'gpu' as WidgetType, size: 'M' as const },
-  { id: 'def-6', type: 'ai-quota' as WidgetType, size: 'M' as const },
-  { id: 'def-7', type: 'media' as WidgetType, size: 'M' as const },
+  { id: 'def-4', type: 'media' as WidgetType, size: 'M' as const },
+  { id: 'def-5', type: 'notes' as WidgetType, size: 'V' as const },
+  { id: 'def-6', type: 'quick-actions' as WidgetType, size: 'S' as const },
+  { id: 'def-7', type: 'battery' as WidgetType, size: 'S' as const },
   { id: 'def-8', type: 'network' as WidgetType, size: 'M' as const },
+  { id: 'def-9', type: 'ai-quota' as WidgetType, size: 'M' as const },
 ];

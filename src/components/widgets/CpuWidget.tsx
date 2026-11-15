@@ -23,6 +23,44 @@ export const CpuWidget: React.FC<WidgetProps> = ({ size }) => {
     );
   }
 
+  if (size === 'V') {
+    return (
+      <div className="flex-1 flex flex-col justify-between py-1">
+        <div className="flex flex-col items-center">
+          <CircularGauge
+            value={cpu.loadPct}
+            size={100}
+            strokeWidth={9}
+            unit="%"
+            color="cyan"
+            subLabel={cpu.freqGhz ? `${cpu.freqGhz.toFixed(1)} GHz` : undefined}
+          />
+          <div className="flex items-center gap-3 text-xs font-mono text-slate-300 mt-2">
+            <span>{cpu.tempC || 48}°C</span>
+            <span>{cpu.cores?.length || 8} Cores</span>
+          </div>
+        </div>
+
+        <div className="my-2">
+          <div className="text-[10px] text-slate-400 font-mono mb-1">Load History</div>
+          <Sparkline data={cpu.history} color="cyan" height={48} />
+        </div>
+
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-white/10">
+          <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Core Activity</span>
+          <div className="grid grid-cols-4 gap-1">
+            {(cpu.cores || [20, 30, 45, 10, 60, 25, 15, 40]).slice(0, 8).map((load, i) => (
+              <div key={i} className="flex flex-col items-center bg-white/[0.04] p-1 rounded">
+                <span className="text-[8px] text-slate-500 font-mono">c{i}</span>
+                <span className="text-[10px] font-bold text-white font-mono">{load}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (size === 'M') {
     return (
       <div className="flex-1 flex flex-col justify-between">

@@ -13,6 +13,7 @@ if (typeof electron === 'string') {
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
+const { sendMediaControl, stopMediaDaemon } = require('./media.cjs');
 
 // Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
 const gotTheLock = app.requestSingleInstanceLock();
@@ -239,6 +240,24 @@ ipcMain.on('toggle-always-on-top', () => {
   }
 });
 
+ipcMain.on('media:control', (_event, action) => {
+  sendMediaControl(action);
+});
+
+ipcMain.on('system:action', (_event, action) => {
+  if (process.platform !== 'win32') return;
+  const { exec } = require('child_process');
+  if (action === 'mute') {
+    exec('powershell -Command "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"');
+  } else if (action === 'lock') {
+    exec('rundll32.exe user32.dll,LockWorkStation');
+  } else if (action === 'taskmgr') {
+    exec('start taskmgr.exe');
+  } else if (action === 'sleep') {
+    exec('rundll32.exe powrprof.dll,SetSuspendState 0,1,0');
+  }
+});
+
 app.on('second-instance', () => {
   if (win && !win.isDestroyed()) {
     isUserHidden = false;
@@ -271,6 +290,7 @@ app.whenReady().then(() => {
 
 app.on('will-quit', () => {
   app.isQuitting = true;
+  stopMediaDaemon();
   globalShortcut.unregisterAll();
   if (telemetryTimer) clearInterval(telemetryTimer);
 });

@@ -13,5 +13,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: () => {
     ipcRenderer.send('toggle-always-on-top');
   },
+  controlMedia: (action) => {
+    ipcRenderer.send('media:control', action);
+  },
+  systemAction: (action) => {
+    ipcRenderer.send('system:action', action);
+  },
 });
 

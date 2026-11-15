@@ -124,9 +124,37 @@ export const FloatingHUD: React.FC = () => {
             className="w-[92vw] max-w-[680px] max-h-[85vh] overflow-y-auto pointer-events-auto macos-glass macos-squircle p-5 border border-white/10 shadow-2xl flex flex-col gap-4 mt-2"
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Expanded Desktop Cockpit
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
+                  Expanded Cockpit
+                </span>
+                <div className="flex items-center bg-white/5 rounded-lg p-0.5 border border-white/10 text-[10px]">
+                  <button
+                    onClick={() => setMode('canvas')}
+                    className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    Desktop
+                  </button>
+                  <button
+                    onClick={() => setMode('sidebar')}
+                    className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    Dock
+                  </button>
+                  <button
+                    onClick={() => setMode('minibar')}
+                    className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    MiniBar
+                  </button>
+                  <button
+                    onClick={() => setMode('dashboard')}
+                    className="px-2 py-0.5 rounded text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    Full
+                  </button>
+                </div>
+              </div>
               <button
                 onClick={() => setExpanded(false)}
                 className="text-slate-400 hover:text-white p-1 cursor-pointer"

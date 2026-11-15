@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { Plus, SlidersHorizontal, RotateCcw, GripHorizontal, LayoutGrid } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS } from '../../lib/widgetRegistry';
@@ -135,8 +135,13 @@ export const SidebarDock: React.FC = () => {
         {/* Priority Approvals */}
         <ClaudeApprovals />
 
-        {/* Modular Stack */}
-        <div className="flex flex-col gap-3">
+        {/* Reorderable Modular Stack */}
+        <Reorder.Group
+          axis="y"
+          values={widgets}
+          onReorder={setWidgets}
+          className="flex flex-col gap-3"
+        >
           <AnimatePresence mode="popLayout">
             {widgets.map((widget) => {
               const def = WIDGET_CATALOG[widget.type];
@@ -145,14 +150,11 @@ export const SidebarDock: React.FC = () => {
               const Component = def.component;
 
               return (
-                <motion.div
+                <Reorder.Item
                   key={widget.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-                  className="flex justify-center"
+                  value={widget}
+                  dragListener={editMode}
+                  className="flex justify-center cursor-default select-none"
                 >
                   <WidgetShell
                     id={widget.id}
@@ -166,11 +168,11 @@ export const SidebarDock: React.FC = () => {
                   >
                     <Component size={widget.size} />
                   </WidgetShell>
-                </motion.div>
+                </Reorder.Item>
               );
             })}
           </AnimatePresence>
-        </div>
+        </Reorder.Group>
 
         {/* Empty Dock State */}
         {widgets.length === 0 && (

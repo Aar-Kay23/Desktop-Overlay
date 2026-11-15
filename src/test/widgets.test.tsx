@@ -10,7 +10,7 @@ import { WidgetShell } from '../components/widgets/WidgetShell';
 import type { WidgetType } from '../types/widgets';
 
 describe('macOS Modular Widgets System', () => {
-  it('registers all 10 core widget types with S, M, L support', () => {
+  it('registers all 14 core widget types with S, M, L support', () => {
     const requiredTypes: WidgetType[] = [
       'cpu',
       'gpu',
@@ -22,6 +22,10 @@ describe('macOS Modular Widgets System', () => {
       'media',
       'processes',
       'clock',
+      'weather',
+      'notes',
+      'world-clock',
+      'quick-actions',
     ];
 
     for (const type of requiredTypes) {
@@ -91,14 +95,14 @@ describe('macOS Modular Widgets System', () => {
     expect(screen.getByText(/Uptime/i)).toBeInTheDocument();
   });
 
-  it('renders WidgetShell with size controls and title', () => {
+  it('renders WidgetShell with size controls and title including V portrait size', () => {
     render(
       <WidgetShell
         id="test-w1"
         title="Test Widget"
         icon={<span>⚡</span>}
-        size="M"
-        supportedSizes={['S', 'M', 'L']}
+        size="V"
+        supportedSizes={['S', 'M', 'V', 'L']}
         onResize={() => {}}
         onRemove={() => {}}
         editMode={true}
@@ -111,6 +115,7 @@ describe('macOS Modular Widgets System', () => {
     expect(screen.getByText('Widget Content Inside')).toBeInTheDocument();
     expect(screen.getByText('S')).toBeInTheDocument();
     expect(screen.getByText('M')).toBeInTheDocument();
+    expect(screen.getByText('V')).toBeInTheDocument();
     expect(screen.getByText('L')).toBeInTheDocument();
   });
 

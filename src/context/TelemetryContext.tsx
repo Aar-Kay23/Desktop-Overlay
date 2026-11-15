@@ -174,6 +174,9 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [source, connector]);
 
   const controlMedia = useCallback(async (action: 'playpause' | 'next' | 'prev') => {
+    if (typeof window !== 'undefined' && window.electronAPI?.controlMedia) {
+      window.electronAPI.controlMedia(action);
+    }
     if (source === 'live-agent') {
       await connector.controlMedia(action);
     } else {
