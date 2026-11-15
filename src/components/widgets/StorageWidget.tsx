@@ -96,3 +96,4 @@ export const StorageWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

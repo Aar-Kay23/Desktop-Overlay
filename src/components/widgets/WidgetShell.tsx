@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, GripVertical } from 'lucide-react';
 import type { WidgetSize } from '../../types/widgets';
 
 interface WidgetShellProps {
@@ -28,18 +28,21 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
 }) => {
   // Dimension and grid span mapping
   const sizeClasses = {
-    S: 'col-span-1 row-span-1 w-[164px] h-[164px] p-3.5',
-    M: 'col-span-2 row-span-1 w-[344px] h-[164px] p-4',
-    L: 'col-span-2 row-span-2 w-[344px] h-[344px] p-4',
+    S: 'w-[164px] h-[164px] p-3.5',
+    M: 'w-[344px] h-[164px] p-4',
+    L: 'w-[344px] h-[344px] p-4',
   };
 
   return (
     <div
-      className={`macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-all duration-300 ${sizeClasses[size]}`}
+      className={`macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-shadow duration-200 ${
+        sizeClasses[size]
+      } ${editMode ? 'ring-1 ring-white/20 shadow-2xl' : 'hover:shadow-xl'}`}
     >
-      {/* Top Header */}
-      <div className="flex items-center justify-between gap-1.5 mb-1.5 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Top Header & Drag Handle */}
+      <div className="flex items-center justify-between gap-1.5 mb-1.5 shrink-0 cursor-grab active:cursor-grabbing">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <GripVertical className="w-3.5 h-3.5 text-white/20 group-hover:text-white/50 transition-colors shrink-0" />
           <div className="w-5 h-5 rounded-md bg-white/[0.08] flex items-center justify-center text-slate-300 shrink-0">
             {icon}
           </div>
@@ -100,3 +103,4 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
     </div>
   );
 };
+

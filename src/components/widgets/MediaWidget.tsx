@@ -146,3 +146,4 @@ export const MediaWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

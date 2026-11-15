@@ -122,3 +122,4 @@ export const ClockWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

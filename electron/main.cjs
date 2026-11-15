@@ -71,13 +71,13 @@ function createWindow() {
   win.on('minimize', (e) => {
     e.preventDefault();
     win.restore();
-    if (!isAlwaysOnTop) win.moveBottom();
+    if (!isAlwaysOnTop) win.setAlwaysOnTop(false);
   });
 
   win.on('blur', () => {
     // Keep at desktop layer when user is working in other apps
-    if (!isAlwaysOnTop && win) {
-      win.moveBottom();
+    if (!isAlwaysOnTop && win && !win.isDestroyed()) {
+      win.setAlwaysOnTop(false);
     }
   });
 
@@ -130,7 +130,6 @@ function createTray() {
           isAlwaysOnTop = item.checked;
           if (win) {
             win.setAlwaysOnTop(isAlwaysOnTop);
-            if (!isAlwaysOnTop) win.moveBottom();
           }
         },
       },
@@ -168,7 +167,7 @@ function toggleVisibility() {
     win.hide();
   } else {
     win.show();
-    if (!isAlwaysOnTop) win.moveBottom();
+    if (!isAlwaysOnTop) win.setAlwaysOnTop(false);
   }
 }
 
@@ -183,7 +182,6 @@ ipcMain.on('toggle-always-on-top', () => {
   isAlwaysOnTop = !isAlwaysOnTop;
   if (win) {
     win.setAlwaysOnTop(isAlwaysOnTop);
-    if (!isAlwaysOnTop) win.moveBottom();
   }
 });
 

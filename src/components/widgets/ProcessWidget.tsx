@@ -87,3 +87,4 @@ export const ProcessWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

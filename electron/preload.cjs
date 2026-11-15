@@ -14,3 +14,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('toggle-always-on-top');
   },
 });
+

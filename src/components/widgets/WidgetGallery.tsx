@@ -141,3 +141,4 @@ export const WidgetGallery: React.FC<WidgetGalleryProps> = ({
     </div>
   );
 };
+

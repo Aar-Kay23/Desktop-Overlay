@@ -14,10 +14,16 @@ export type WidgetType =
   | 'processes'
   | 'clock';
 
+export interface WidgetPosition {
+  x: number;
+  y: number;
+}
+
 export interface WidgetInstance {
   id: string;
   type: WidgetType;
   size: WidgetSize;
+  position?: WidgetPosition;
 }
 
 export interface WidgetProps {

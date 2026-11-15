@@ -241,3 +241,4 @@ export const BatteryWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Cpu, Zap, Database, Music, ChevronDown, ChevronUp, Sparkles, X } from 'lucide-react';
+import { Cpu, Zap, Database, Music, ChevronDown, ChevronUp, Sparkles, X, LayoutGrid, GripHorizontal, BatteryCharging } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { SystemVitals } from '../modules/SystemVitals';
 import { AIQuotaCockpit } from '../modules/AIQuotaCockpit';
@@ -8,25 +8,30 @@ import { MediaStudio } from '../modules/MediaStudio';
 import { ClaudeApprovals } from '../modules/ClaudeApprovals';
 
 export const FloatingHUD: React.FC = () => {
-  const { snapshot } = useTelemetry();
-  const { cpu, gpu, memory, media, quotas } = snapshot;
+  const { snapshot, setMode } = useTelemetry();
+  const { cpu, gpu, memory, media, quotas, battery } = snapshot;
   const [expanded, setExpanded] = useState(false);
 
   const topQuota = quotas[0];
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
-      {/* Floating Pill (Dynamic Island) */}
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center select-none pointer-events-none">
+      {/* Freely Draggable Floating Pill (Dynamic Island) */}
       <motion.div
+        drag
+        dragMomentum={false}
+        dragElastic={0.06}
         layout
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-        className="glass-panel rounded-full px-4 py-2 border border-white/15 shadow-[0_12px_40px_rgba(0,0,0,0.6)] flex items-center gap-4 cursor-pointer hover:border-cyan-500/40 hover:bg-black/80 transition-colors"
+        className="pointer-events-auto macos-glass rounded-full px-4 py-2 border border-white/10 shadow-2xl flex items-center gap-3.5 cursor-grab active:cursor-grabbing hover:border-white/20 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
+        <GripHorizontal className="w-3.5 h-3.5 text-white/30 shrink-0" />
+
         {/* CPU */}
         <div className="flex items-center gap-1.5">
-          <Cpu className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="text-xs font-bold font-mono text-slate-100">
+          <Cpu className="w-3.5 h-3.5 text-slate-300" />
+          <span className="text-xs font-bold font-mono text-white">
             {Math.round(cpu.loadPct)}%
           </span>
         </div>
@@ -35,44 +40,70 @@ export const FloatingHUD: React.FC = () => {
 
         {/* GPU */}
         <div className="flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-emerald-400" />
-          <span className="text-xs font-bold font-mono text-slate-100">
+          <Zap className="w-3.5 h-3.5 text-slate-300" />
+          <span className="text-xs font-bold font-mono text-white">
             {Math.round(gpu.loadPct)}%
           </span>
         </div>
 
         <div className="w-px h-3.5 bg-white/10" />
 
-        {/* RAM */}
+        {/* Memory */}
         <div className="flex items-center gap-1.5">
-          <Database className="w-3.5 h-3.5 text-violet-400" />
-          <span className="text-xs font-bold font-mono text-slate-100">
+          <Database className="w-3.5 h-3.5 text-slate-300" />
+          <span className="text-xs font-bold font-mono text-white">
             {Math.round(memory.pct)}%
           </span>
         </div>
 
-        <div className="w-px h-3.5 bg-white/10" />
-
-        {/* AI Quota */}
-        {topQuota && (
-          <div className="flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-xs font-bold font-mono text-slate-100">
-              {Math.round(topQuota.sessionLimit.usedPct)}%
-            </span>
-          </div>
+        {battery && (
+          <>
+            <div className="w-px h-3.5 bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-bold font-mono text-white">
+                {battery.percent}%
+              </span>
+            </div>
+          </>
         )}
 
-        <div className="w-px h-3.5 bg-white/10" />
+        {topQuota && (
+          <>
+            <div className="w-px h-3.5 bg-white/10" />
+            <div className="flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-xs font-bold font-mono text-white">
+                {Math.round(topQuota.sessionLimit.usedPct)}%
+              </span>
+            </div>
+          </>
+        )}
 
-        {/* Music indicator */}
-        <div className="flex items-center gap-1.5 max-w-[140px] truncate">
-          <Music className={`w-3.5 h-3.5 text-cyan-400 ${media.isPlaying ? 'animate-bounce' : ''}`} />
-          <span className="text-xs text-slate-300 truncate">{media.title}</span>
-        </div>
+        {media.title && (
+          <>
+            <div className="w-px h-3.5 bg-white/10" />
+            <div className="flex items-center gap-1.5 max-w-[140px] truncate">
+              <Music className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span className="text-xs text-slate-200 truncate">{media.title}</span>
+            </div>
+          </>
+        )}
+
+        {/* Canvas button */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMode('canvas');
+          }}
+          title="Switch to Desktop Canvas"
+          className="p-1 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors cursor-pointer ml-1"
+        >
+          <LayoutGrid className="w-3.5 h-3.5" />
+        </button>
 
         {/* Expand toggle */}
-        <div className="ml-1 text-slate-400">
+        <div className="text-slate-400">
           {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </motion.div>
@@ -85,11 +116,11 @@ export const FloatingHUD: React.FC = () => {
             animate={{ opacity: 1, y: 12, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 350, damping: 28 }}
-            className="w-[92vw] max-w-[680px] max-h-[85vh] overflow-y-auto glass-panel rounded-2xl p-4 border border-white/15 shadow-[0_20px_60px_rgba(0,0,0,0.8)] flex flex-col gap-4 mt-2"
+            className="w-[92vw] max-w-[680px] max-h-[85vh] overflow-y-auto pointer-events-auto macos-glass macos-squircle p-5 border border-white/10 shadow-2xl flex flex-col gap-4 mt-2"
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                Expanded Desktop HUD
+                Expanded Desktop Cockpit
               </span>
               <button
                 onClick={() => setExpanded(false)}
@@ -109,4 +140,3 @@ export const FloatingHUD: React.FC = () => {
     </div>
   );
 };
-

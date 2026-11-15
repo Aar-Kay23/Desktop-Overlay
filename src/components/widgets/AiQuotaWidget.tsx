@@ -129,3 +129,4 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

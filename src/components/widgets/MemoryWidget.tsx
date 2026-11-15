@@ -126,3 +126,4 @@ export const MemoryWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

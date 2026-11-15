@@ -110,3 +110,4 @@ export const GpuWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+
