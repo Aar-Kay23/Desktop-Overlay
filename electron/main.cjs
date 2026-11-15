@@ -1,4 +1,16 @@
-const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require('electron');
+const electron = require('electron');
+
+// Auto-fallback: If executed by Node instead of Electron binary, spawn Electron directly
+if (typeof electron === 'string') {
+  const { spawn } = require('child_process');
+  const path = require('path');
+  const projectRoot = path.join(__dirname, '..');
+  const child = spawn(electron, [projectRoot], { stdio: 'inherit', windowsHide: false, detached: true });
+  child.unref();
+  process.exit(0);
+}
+
+const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
 

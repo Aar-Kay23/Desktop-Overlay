@@ -10,7 +10,7 @@ if not exist "dist\index.html" (
     call npm run build
 )
 echo Starting native desktop widgets layer...
-start "" npx electron electron/main.cjs
+start "" node electron/main.cjs
 echo.
 echo [OK] macOS Desktop Widgets are now active on your desktop!
 echo      - Sits directly on your desktop layer (behind open apps and tabs).
