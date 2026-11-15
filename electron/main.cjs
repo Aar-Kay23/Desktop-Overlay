@@ -18,6 +18,13 @@ const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
 const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
+});
+
 // Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -74,13 +81,24 @@ function createWindow() {
   const devUrl = 'http://localhost:5173';
   const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
 
-  fetch(devUrl)
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 300);
+
+  fetch(devUrl, { signal: controller.signal })
     .then(() => {
+      clearTimeout(timeoutId);
       win.loadURL(devUrl);
     })
     .catch(() => {
+      clearTimeout(timeoutId);
       win.loadFile(prodPath);
     });
+
+  win.once('ready-to-show', () => {
+    if (!isUserHidden && win && !win.isDestroyed()) {
+      win.show();
+    }
+  });
 
   // Win32 System Command Hook to catch and mitigate Win+D / Show Desktop minimize sweeps
   if (process.platform === 'win32') {
