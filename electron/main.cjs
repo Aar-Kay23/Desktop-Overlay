@@ -258,12 +258,17 @@ function createTray() {
 }
 
 // IPC Handlers
+let lastIgnoreMouse = true;
 ipcMain.on('set-interactive', (_event, interactive) => {
   if (win && !win.isDestroyed()) {
-    if (interactive) {
-      win.setIgnoreMouseEvents(false);
-    } else {
-      win.setIgnoreMouseEvents(true, { forward: true });
+    const shouldIgnore = !interactive;
+    if (lastIgnoreMouse !== shouldIgnore) {
+      lastIgnoreMouse = shouldIgnore;
+      if (interactive) {
+        win.setIgnoreMouseEvents(false);
+      } else {
+        win.setIgnoreMouseEvents(true, { forward: true });
+      }
     }
   }
 });

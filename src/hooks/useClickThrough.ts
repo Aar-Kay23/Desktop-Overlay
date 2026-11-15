@@ -29,15 +29,37 @@ export function useClickThrough(isModalOpen: boolean = false) {
       return;
     }
 
+    let rafId: number | null = null;
+    let leaveTimer: ReturnType<typeof setTimeout> | null = null;
+
     const setInteractiveSafe = (interactive: boolean) => {
       // Guard: while user is holding mouse or actively dragging, keep window interactive
       if (!interactive && (isPointerDownRef.current || globalIsDragging)) {
         return;
       }
 
-      if (currentInteractiveRef.current === interactive) return;
-      currentInteractiveRef.current = interactive;
-      electron.setInteractive(interactive);
+      if (interactive) {
+        // Entering interactive element: clear any pending leave timer and activate immediately
+        if (leaveTimer) {
+          clearTimeout(leaveTimer);
+          leaveTimer = null;
+        }
+        if (currentInteractiveRef.current !== true) {
+          currentInteractiveRef.current = true;
+          electron.setInteractive(true);
+        }
+      } else {
+        // Leaving interactive element: debounce by 50ms so rapid cursor motion doesn't thrash OS DWM
+        if (currentInteractiveRef.current === false) return;
+        if (leaveTimer) return;
+        leaveTimer = setTimeout(() => {
+          leaveTimer = null;
+          if (!isPointerDownRef.current && !globalIsDragging) {
+            currentInteractiveRef.current = false;
+            electron.setInteractive(false);
+          }
+        }, 50);
+      }
     };
 
     const handlePointerDown = () => {
@@ -47,7 +69,6 @@ export function useClickThrough(isModalOpen: boolean = false) {
 
     const handlePointerUp = (e: PointerEvent) => {
       isPointerDownRef.current = false;
-      // Re-evaluate what element sits under the cursor upon release
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const isOverInteractive = Boolean(el?.closest('[data-interactive="true"]'));
       setInteractiveSafe(isOverInteractive);
@@ -55,10 +76,14 @@ export function useClickThrough(isModalOpen: boolean = false) {
 
     const handleMouseMove = (e: MouseEvent) => {
       if (isPointerDownRef.current || globalIsDragging) return;
+      if (rafId !== null) return;
 
-      const target = e.target as HTMLElement | null;
-      const isOverInteractive = Boolean(target?.closest?.('[data-interactive="true"]'));
-      setInteractiveSafe(isOverInteractive);
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        const target = e.target as HTMLElement | null;
+        const isOverInteractive = Boolean(target?.closest?.('[data-interactive="true"]'));
+        setInteractiveSafe(isOverInteractive);
+      });
     };
 
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });
@@ -69,6 +94,8 @@ export function useClickThrough(isModalOpen: boolean = false) {
     setInteractiveSafe(false);
 
     return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      if (leaveTimer !== null) clearTimeout(leaveTimer);
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('mousemove', handleMouseMove);

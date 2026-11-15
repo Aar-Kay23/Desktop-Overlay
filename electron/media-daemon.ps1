@@ -121,6 +121,14 @@ Function Await($WinRtTask, $ResultType) {
 [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media, ContentType = WindowsRuntime] | Out-Null
 $mgr = Await ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
 
+# Pre-compile media properties task unwrapper to eliminate reflection in loop
+$asTaskMediaProps = $asTaskGeneric.MakeGenericMethod([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+Function AwaitMediaProps($WinRtTask) {
+    $netTask = $asTaskMediaProps.Invoke($null, @($WinRtTask))
+    $netTask.Wait(1200) | Out-Null
+    $netTask.Result
+}
+
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 while ($true) {
@@ -130,7 +138,7 @@ while ($true) {
 
         $session = $mgr.GetCurrentSession()
         if ($session) {
-            $props = Await ($session.TryGetMediaPropertiesAsync()) ([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+            $props = AwaitMediaProps ($session.TryGetMediaPropertiesAsync())
             $pb = $session.GetPlaybackInfo()
             $tl = $session.GetTimelineProperties()
 
@@ -165,3 +173,4 @@ while ($true) {
     }
     Start-Sleep -Milliseconds 800
 }
+
