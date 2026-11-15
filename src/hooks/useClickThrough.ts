@@ -75,3 +75,4 @@ export function useClickThrough(isModalOpen: boolean = false) {
     };
   }, [mode, isModalOpen]);
 }
+

@@ -14,9 +14,17 @@ const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeI
 const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
 
+// Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+  process.exit(0);
+}
+
 let win = null;
 let tray = null;
 let isAlwaysOnTop = false; // DESKTOP ONLY: default to false so apps/tabs sit in front
+let isUserHidden = false;   // Distinguishes intentional user hides from OS/Win+D minimize
 let telemetryTimer = null;
 
 function getWindowBounds() {
@@ -46,7 +54,8 @@ function createWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    type: 'toolbar', // Desktop widget classification
+    minimizable: true, // Required so 'minimize' event triggers on Win+D / Show Desktop
+    type: 'toolbar',   // WS_EX_TOOLWINDOW style on Windows
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -70,11 +79,36 @@ function createWindow() {
       win.loadFile(prodPath);
     });
 
-  // Win+D / Show Desktop protection: prevent minimizing
+  // Win+D / Show Desktop protection:
+  // When Win+D or taskbar "Show Desktop" is triggered, Windows DWM commands a minimize.
+  // We intercept it, allow DWM to finish minimizing other foreground windows (60ms), then restore the desktop layer.
   win.on('minimize', (e) => {
     e.preventDefault();
-    win.restore();
-    if (!isAlwaysOnTop) win.setAlwaysOnTop(false);
+    setTimeout(() => {
+      if (win && !win.isDestroyed() && !isUserHidden) {
+        win.restore();
+        win.showInactive();
+        if (!isAlwaysOnTop) {
+          win.setAlwaysOnTop(false);
+          win.blur(); // Yield keyboard and mouse focus back to Windows desktop Explorer
+        }
+      }
+    }, 60);
+  });
+
+  // Prevent unwanted DWM hide on Show Desktop sweeps
+  win.on('hide', () => {
+    if (!isUserHidden && !app.isQuitting) {
+      setTimeout(() => {
+        if (win && !win.isDestroyed() && !isUserHidden) {
+          win.showInactive();
+          if (!isAlwaysOnTop) {
+            win.setAlwaysOnTop(false);
+            win.blur();
+          }
+        }
+      }, 60);
+    }
   });
 
   win.on('blur', () => {
@@ -98,6 +132,13 @@ function startTelemetryBroadcast() {
 
   telemetryTimer = setInterval(async () => {
     if (win && !win.isDestroyed()) {
+      // Periodic safeguard: auto-recover if Windows silently minimized the window
+      if (!isUserHidden && win.isMinimized()) {
+        win.restore();
+        win.showInactive();
+        if (!isAlwaysOnTop) win.blur();
+      }
+
       const data = await getSystemTelemetry();
       if (data) {
         win.webContents.send('telemetry:update', data);
@@ -121,7 +162,7 @@ function createTray() {
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: win && win.isVisible() ? 'Hide Desktop Widgets' : 'Show Desktop Widgets',
+        label: win && win.isVisible() && !isUserHidden ? 'Hide Desktop Widgets' : 'Show Desktop Widgets',
         click: () => toggleVisibility(),
       },
       { type: 'separator' },
@@ -146,6 +187,7 @@ function createTray() {
       {
         label: 'Quit',
         click: () => {
+          app.isQuitting = true;
           app.quit();
         },
       },
@@ -166,11 +208,16 @@ function toggleVisibility() {
     createWindow();
     return;
   }
-  if (win.isVisible()) {
+  if (win.isVisible() && !isUserHidden) {
+    isUserHidden = true;
     win.hide();
   } else {
+    isUserHidden = false;
     win.show();
-    if (!isAlwaysOnTop) win.setAlwaysOnTop(false);
+    if (!isAlwaysOnTop) {
+      win.setAlwaysOnTop(false);
+      win.blur();
+    }
   }
 }
 
@@ -192,9 +239,25 @@ ipcMain.on('toggle-always-on-top', () => {
   }
 });
 
+app.on('second-instance', () => {
+  if (win && !win.isDestroyed()) {
+    isUserHidden = false;
+    if (!win.isVisible()) win.show();
+    if (win.isMinimized()) win.restore();
+    if (!isAlwaysOnTop) win.blur();
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
   createTray();
+
+  // Screen resolution or display metrics change (docking / monitor unplugging)
+  screen.on('display-metrics-changed', () => {
+    if (win && !win.isDestroyed()) {
+      win.setBounds(getWindowBounds());
+    }
+  });
 
   // Global Hotkey: Ctrl+Shift+D to toggle visibility
   try {
@@ -207,6 +270,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
+  app.isQuitting = true;
   globalShortcut.unregisterAll();
   if (telemetryTimer) clearInterval(telemetryTimer);
 });
