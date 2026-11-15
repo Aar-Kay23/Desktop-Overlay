@@ -55,6 +55,9 @@ function createWindow() {
     },
   });
 
+  // Enable click-through by default so desktop icons, taskbar, and background apps remain fully usable
+  win.setIgnoreMouseEvents(true, { forward: true });
+
   // Load production dist or local dev server
   const devUrl = 'http://localhost:5173';
   const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
@@ -173,8 +176,12 @@ function toggleVisibility() {
 
 // IPC Handlers
 ipcMain.on('set-interactive', (_event, interactive) => {
-  if (win) {
-    win.setIgnoreMouseEvents(!interactive, { forward: true });
+  if (win && !win.isDestroyed()) {
+    if (interactive) {
+      win.setIgnoreMouseEvents(false);
+    } else {
+      win.setIgnoreMouseEvents(true, { forward: true });
+    }
   }
 });
 

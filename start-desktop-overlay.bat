@@ -18,8 +18,9 @@ if exist "node_modules\electron\dist\electron.exe" (
 echo.
 echo [OK] macOS Desktop Widgets are now active on your desktop!
 echo      - Sits directly on your desktop layer (behind open apps and tabs).
+echo      - Click-through enabled: clicks outside widgets pass straight to desktop/apps!
 echo      - Press Ctrl+Shift+D or click the system tray icon to toggle.
 echo      - Freely drag any widget anywhere on your desktop.
-echo      - Floating Dock and MiniBar are also freely draggable and resizable.
+echo      - To stop the overlay anytime, run: stop-desktop-overlay.bat
 echo.
-timeout /t 3 >nul
+ping 127.0.0.1 -n 3 >nul

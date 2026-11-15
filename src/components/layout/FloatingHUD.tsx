@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Cpu, Zap, Database, Music, ChevronDown, ChevronUp, Sparkles, X, LayoutGrid, GripHorizontal, BatteryCharging } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
+import { setGlobalDragging } from '../../hooks/useClickThrough';
 import { SystemVitals } from '../modules/SystemVitals';
 import { AIQuotaCockpit } from '../modules/AIQuotaCockpit';
 import { MediaStudio } from '../modules/MediaStudio';
@@ -23,6 +24,9 @@ export const FloatingHUD: React.FC = () => {
         dragElastic={0.06}
         layout
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+        onDragStart={() => setGlobalDragging(true)}
+        onDragEnd={() => setGlobalDragging(false)}
+        data-interactive="true"
         className="pointer-events-auto macos-glass rounded-full px-4 py-2 border border-white/10 shadow-2xl flex items-center gap-3.5 cursor-grab active:cursor-grabbing hover:border-white/20 transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
@@ -116,6 +120,7 @@ export const FloatingHUD: React.FC = () => {
             animate={{ opacity: 1, y: 12, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+            data-interactive="true"
             className="w-[92vw] max-w-[680px] max-h-[85vh] overflow-y-auto pointer-events-auto macos-glass macos-squircle p-5 border border-white/10 shadow-2xl flex flex-col gap-4 mt-2"
           >
             <div className="flex items-center justify-between pb-2 border-b border-white/10">

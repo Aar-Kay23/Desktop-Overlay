@@ -7,22 +7,26 @@ import { FloatingHUD } from './components/layout/FloatingHUD';
 import { MiniBar } from './components/layout/MiniBar';
 import { DesktopCanvas } from './components/layout/DesktopCanvas';
 import { SettingsModal } from './components/settings/SettingsModal';
+import { useClickThrough } from './hooks/useClickThrough';
 
 const OverlayContent: React.FC = () => {
   const { mode } = useTelemetry();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // In desktop canvas mode, background is transparent so user's wallpaper shows through
-  const isDesktopMode = mode === 'canvas';
+  // Activate dynamic click-through: empty desktop areas pass through to OS, widgets capture clicks
+  useClickThrough(settingsOpen);
+
+  // In desktop overlay modes (canvas, dock, minibar, hud), keep background transparent
+  const isSolidDashboard = mode === 'dashboard';
 
   return (
     <div
       className={`min-h-screen text-slate-100 flex flex-col relative overflow-x-hidden selection:bg-white/20 ${
-        isDesktopMode ? 'bg-transparent' : 'bg-[#07090e]'
+        isSolidDashboard ? 'bg-[#07090e]' : 'bg-transparent pointer-events-none'
       }`}
     >
-      {/* Ambient background glows for non-desktop modes */}
-      {!isDesktopMode && (
+      {/* Ambient background glows for solid dashboard mode only */}
+      {isSolidDashboard && (
         <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
           <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/[0.07] rounded-full blur-[120px]" />
           <div className="absolute top-1/3 -right-40 w-96 h-96 bg-violet-500/[0.06] rounded-full blur-[140px]" />
@@ -37,9 +41,11 @@ const OverlayContent: React.FC = () => {
         </div>
       )}
 
-      {/* Top Header Bar shown for sidebar, HUD, and dashboard modes */}
+      {/* Top Header Bar shown for dashboard, sidebar, and HUD modes */}
       {mode !== 'minibar' && mode !== 'canvas' && (
-        <HeaderBar onOpenSettings={() => setSettingsOpen(true)} />
+        <div data-interactive="true" className="pointer-events-auto">
+          <HeaderBar onOpenSettings={() => setSettingsOpen(true)} />
+        </div>
       )}
 
       {/* Main View Area */}
@@ -52,7 +58,9 @@ const OverlayContent: React.FC = () => {
       </main>
 
       {/* Settings Modal */}
-      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <div data-interactive="true" className="pointer-events-auto">
+        <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </div>
     </div>
   );
 };

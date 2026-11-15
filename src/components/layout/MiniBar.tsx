@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG } from '../../lib/widgetRegistry';
+import { setGlobalDragging } from '../../hooks/useClickThrough';
 import type { WidgetType } from '../../types/widgets';
 
 interface MiniBarItem {
@@ -150,6 +151,9 @@ export const MiniBar: React.FC = () => {
         drag
         dragMomentum={false}
         dragElastic={0.06}
+        onDragStart={() => setGlobalDragging(true)}
+        onDragEnd={() => setGlobalDragging(false)}
+        data-interactive="true"
         className="pointer-events-auto macos-glass rounded-full px-4 py-2 border border-white/10 shadow-2xl flex items-center gap-3 text-xs cursor-grab active:cursor-grabbing"
       >
         <GripHorizontal className="w-3.5 h-3.5 text-white/30 shrink-0" />

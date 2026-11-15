@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, SlidersHorizontal, RotateCcw, GripHorizontal, LayoutGrid } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS } from '../../lib/widgetRegistry';
+import { setGlobalDragging } from '../../hooks/useClickThrough';
 import { WidgetShell } from '../widgets/WidgetShell';
 import { WidgetGallery } from '../widgets/WidgetGallery';
 import { ClaudeApprovals } from '../modules/ClaudeApprovals';
@@ -75,6 +76,9 @@ export const SidebarDock: React.FC = () => {
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+        onDragStart={() => setGlobalDragging(true)}
+        onDragEnd={() => setGlobalDragging(false)}
+        data-interactive="true"
         className="w-full max-w-[380px] macos-glass macos-squircle p-4 shadow-2xl border border-white/10 flex flex-col gap-3 pointer-events-auto max-h-[94vh] overflow-y-auto"
       >
         {/* Dock Header & Drag Handle */}

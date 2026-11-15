@@ -4,6 +4,7 @@ import { Plus, SlidersHorizontal, RotateCcw, Sparkles, Settings, Sidebar, Magnet
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS, DEFAULT_WIDGET_LAYOUT } from '../../lib/widgetRegistry';
 import { clampPosition, snapCoordinate, computeAutoLayout, WIDGET_DIMENSIONS } from '../../lib/layoutUtils';
+import { setGlobalDragging } from '../../hooks/useClickThrough';
 import { WidgetShell } from '../widgets/WidgetShell';
 import { WidgetGallery } from '../widgets/WidgetGallery';
 import { ClaudeApprovals } from '../modules/ClaudeApprovals';
@@ -145,9 +146,9 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
   };
 
   return (
-    <div className="min-h-screen relative w-full h-full overflow-hidden select-none selection:bg-white/20">
+    <div className="min-h-screen relative w-full h-full overflow-hidden select-none selection:bg-white/20 pointer-events-none">
       {/* Top Floating Glass Toolbar */}
-      <div className="fixed top-4 left-6 right-6 z-40 flex items-center justify-between pointer-events-auto">
+      <div data-interactive="true" className="fixed top-4 left-6 right-6 z-40 flex items-center justify-between pointer-events-auto">
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-full macos-glass macos-squircle border border-white/10 shadow-lg">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
           <span className="text-xs font-semibold tracking-tight text-white">
@@ -233,12 +234,12 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
       </div>
 
       {/* Claude Approvals Floating Toast if active */}
-      <div className="fixed top-16 left-1/2 -translate-x-1/2 z-30 max-w-xl w-full px-4 pointer-events-auto">
+      <div data-interactive="true" className="fixed top-16 left-1/2 -translate-x-1/2 z-30 max-w-xl w-full px-4 pointer-events-auto">
         <ClaudeApprovals />
       </div>
 
-      {/* Freeform Draggable Canvas */}
-      <div className="absolute inset-0 z-10 pointer-events-auto">
+      {/* Freeform Draggable Canvas: Background passes clicks straight through */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
         <AnimatePresence>
           {widgets.map((widget) => {
             const def = WIDGET_CATALOG[widget.type];
@@ -257,7 +258,9 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
                 dragElastic={0.06}
                 animate={{ x: posX, y: posY }}
                 transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                onDragStart={() => setGlobalDragging(true)}
                 onDragEnd={(_, info) => {
+                  setGlobalDragging(false);
                   let newX = posX + info.offset.x;
                   let newY = posY + info.offset.y;
                   if (snapToGrid) {
@@ -268,7 +271,8 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
                   handleUpdatePosition(widget.id, clamped.x, clamped.y);
                 }}
                 style={{ position: 'absolute', top: 0, left: 0 }}
-                className="touch-none"
+                data-interactive="true"
+                className="touch-none pointer-events-auto"
               >
                 <WidgetShell
                   id={widget.id}
@@ -290,8 +294,8 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
 
       {/* Empty State */}
       {widgets.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-20 pointer-events-auto">
-          <div className="macos-glass macos-squircle p-8 max-w-sm flex flex-col items-center border border-white/10 shadow-2xl">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-20 pointer-events-none">
+          <div data-interactive="true" className="macos-glass macos-squircle p-8 max-w-sm flex flex-col items-center border border-white/10 shadow-2xl pointer-events-auto">
             <Sparkles className="w-10 h-10 text-slate-400 mb-3" />
             <h3 className="text-base font-semibold text-white">No Desktop Widgets</h3>
             <p className="text-xs text-slate-400 mt-1 mb-5">
@@ -308,11 +312,13 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
       )}
 
       {/* Widget Gallery Drawer/Modal */}
-      <WidgetGallery
-        isOpen={galleryOpen}
-        onClose={() => setGalleryOpen(false)}
-        onAddWidget={handleAddWidget}
-      />
+      <div data-interactive="true" className="pointer-events-auto">
+        <WidgetGallery
+          isOpen={galleryOpen}
+          onClose={() => setGalleryOpen(false)}
+          onAddWidget={handleAddWidget}
+        />
+      </div>
     </div>
   );
 };

@@ -35,7 +35,8 @@ export const WidgetShell: React.FC<WidgetShellProps> = ({
 
   return (
     <div
-      className={`macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-shadow duration-200 ${
+      data-interactive="true"
+      className={`macos-glass macos-squircle flex flex-col justify-between relative group select-none transition-shadow duration-200 pointer-events-auto ${
         sizeClasses[size]
       } ${editMode ? 'ring-1 ring-white/20 shadow-2xl' : 'hover:shadow-xl'}`}
     >
