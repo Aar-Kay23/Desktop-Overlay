@@ -24,7 +24,14 @@ const TelemetryContext = createContext<TelemetryContextValue | null>(null);
 
 export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [snapshot, setSnapshot] = useState<SystemSnapshot>(() => generateInitialSnapshot());
-  const [mode, setMode] = useState<OverlayMode>('canvas');
+  const [mode, setModeState] = useState<OverlayMode>('canvas');
+
+  const setMode = useCallback((newMode: OverlayMode) => {
+    setModeState(newMode);
+    if (typeof window !== 'undefined' && window.electronAPI?.setOverlayMode) {
+      window.electronAPI.setOverlayMode(newMode);
+    }
+  }, []);
   const [source, setSource] = useState<ConnectionSource>('simulation');
   const [agentUrl, setAgentUrlState] = useState<string>(() => {
     try {

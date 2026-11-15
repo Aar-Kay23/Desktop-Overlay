@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleAlwaysOnTop: () => {
     ipcRenderer.send('toggle-always-on-top');
   },
+  setOverlayMode: (mode) => {
+    ipcRenderer.send('set-overlay-mode', mode);
+  },
   controlMedia: (action) => {
     ipcRenderer.send('media:control', action);
   },

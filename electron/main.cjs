@@ -240,6 +240,19 @@ ipcMain.on('toggle-always-on-top', () => {
   }
 });
 
+ipcMain.on('set-overlay-mode', (_event, mode) => {
+  if (win && !win.isDestroyed()) {
+    if (mode === 'hud') {
+      // Dynamic Island pinned above ALL applications and windows
+      win.setAlwaysOnTop(true, 'floating');
+    } else if (!isAlwaysOnTop) {
+      // Desktop widgets return to native desktop layer behind active apps
+      win.setAlwaysOnTop(false);
+      win.blur();
+    }
+  }
+});
+
 ipcMain.on('media:control', (_event, action) => {
   sendMediaControl(action);
 });

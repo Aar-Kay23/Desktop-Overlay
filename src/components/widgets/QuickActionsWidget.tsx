@@ -134,3 +134,4 @@ export const QuickActionsWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
+

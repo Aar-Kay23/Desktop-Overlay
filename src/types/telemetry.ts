@@ -87,6 +87,7 @@ export interface MediaState {
   volumePct: number;
   isMuted: boolean;
   albumArtUrl?: string;
+  sourceApp?: string;
 }
 
 export interface ProcessItem {
