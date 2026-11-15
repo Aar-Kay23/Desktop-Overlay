@@ -10,11 +10,16 @@ if not exist "dist\index.html" (
     call npm run build
 )
 echo Starting native desktop widgets layer...
-start "" node electron/main.cjs
+if exist "node_modules\electron\dist\electron.exe" (
+    start "" "node_modules\electron\dist\electron.exe" .
+) else (
+    start "" npx electron .
+)
 echo.
 echo [OK] macOS Desktop Widgets are now active on your desktop!
 echo      - Sits directly on your desktop layer (behind open apps and tabs).
 echo      - Press Ctrl+Shift+D or click the system tray icon to toggle.
-echo      - Real hardware telemetry (Intel CPU, Iris Xe GPU, RAM, Disks, Battery).
+echo      - Freely drag any widget anywhere on your desktop.
+echo      - Floating Dock and MiniBar are also freely draggable and resizable.
 echo.
 timeout /t 3 >nul
