@@ -3,6 +3,18 @@ import type { SystemSnapshot, OverlayMode, ConnectionSource, ClaudeApprovalReque
 import { generateInitialSnapshot, advanceMockStep } from '../lib/mockData';
 import { AgentConnector } from '../services/agentConnector';
 
+export interface GlassSettings {
+  opacity: number;       // 0.20 to 0.95
+  blur: number;          // 8 to 40 px
+  borderOpacity: number; // 0.04 to 0.30
+}
+
+const DEFAULT_GLASS_SETTINGS: GlassSettings = {
+  opacity: 0.65,
+  blur: 28,
+  borderOpacity: 0.09,
+};
+
 interface TelemetryContextValue {
   snapshot: SystemSnapshot;
   mode: OverlayMode;
@@ -14,9 +26,12 @@ interface TelemetryContextValue {
   agentOnline: boolean;
   isPinned: boolean;
   togglePin: () => void;
+  glassSettings: GlassSettings;
+  setGlassSettings: (settings: Partial<GlassSettings>) => void;
   decideApproval: (id: string, decision: 'allow' | 'deny') => Promise<void>;
   controlMedia: (action: 'playpause' | 'next' | 'prev') => Promise<void>;
   setVolume: (level: number) => Promise<void>;
+  toggleMute: () => Promise<void>;
   killProcess: (name?: string, pid?: number) => Promise<void>;
 }
 
@@ -32,6 +47,7 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       window.electronAPI.setOverlayMode(newMode);
     }
   }, []);
+
   const [source, setSource] = useState<ConnectionSource>('simulation');
   const [agentUrl, setAgentUrlState] = useState<string>(() => {
     try {
@@ -42,6 +58,36 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
   const [agentOnline, setAgentOnline] = useState<boolean>(false);
   const [isPinned, setIsPinned] = useState<boolean>(false);
+
+  // Glass customization settings
+  const [glassSettings, setGlassSettingsState] = useState<GlassSettings>(() => {
+    try {
+      const saved = localStorage.getItem('desktop_overlay_glass_settings');
+      return saved ? { ...DEFAULT_GLASS_SETTINGS, ...JSON.parse(saved) } : DEFAULT_GLASS_SETTINGS;
+    } catch {
+      return DEFAULT_GLASS_SETTINGS;
+    }
+  });
+
+  const setGlassSettings = useCallback((newSettings: Partial<GlassSettings>) => {
+    setGlassSettingsState((prev) => {
+      const updated = { ...prev, ...newSettings };
+      try {
+        localStorage.setItem('desktop_overlay_glass_settings', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
+  // Apply glass settings directly to :root CSS variables
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      const root = document.documentElement;
+      root.style.setProperty('--glass-opacity', String(glassSettings.opacity));
+      root.style.setProperty('--glass-blur', `${glassSettings.blur}px`);
+      root.style.setProperty('--glass-border-opacity', String(glassSettings.borderOpacity));
+    }
+  }, [glassSettings]);
 
   const connector = useMemo(() => new AgentConnector(agentUrl), [agentUrl]);
 
@@ -66,6 +112,11 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           network: { ...prev.network, ...realData.network },
           battery: realData.battery || prev.battery,
           topProcesses: realData.topProcesses && realData.topProcesses.length > 0 ? realData.topProcesses : prev.topProcesses,
+          media: {
+            ...prev.media,
+            ...realData.media,
+            albumArtUrl: realData.media?.albumArtUrl || prev.media?.albumArtUrl,
+          },
         }));
       });
       return () => unsub();
@@ -157,28 +208,29 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, [connector, source]);
 
-  // Run simulation loop when in simulation mode
+  // Simulation mode loop: advances mock data smoothly every 1000ms
   useEffect(() => {
     if (source !== 'simulation') return;
 
-    const timer = setInterval(() => {
+    const interval = setInterval(() => {
       setSnapshot((prev) => advanceMockStep(prev));
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => clearInterval(interval);
   }, [source]);
 
-  // Action handlers
-  const decideApproval = useCallback(async (id: string, decision: 'allow' | 'deny') => {
-    if (source === 'live-agent') {
-      await connector.decideApproval(id, decision);
-    }
-    // Optimistic removal
-    setSnapshot((prev) => ({
-      ...prev,
-      pendingApprovals: prev.pendingApprovals.filter((a) => a.id !== id),
-    }));
-  }, [source, connector]);
+  const decideApproval = useCallback(
+    async (id: string, decision: 'allow' | 'deny') => {
+      if (source === 'live-agent') {
+        await connector.decideApproval(id, decision);
+      }
+      setSnapshot((prev) => ({
+        ...prev,
+        pendingApprovals: prev.pendingApprovals.filter((a: ClaudeApprovalRequest) => a.id !== id),
+      }));
+    },
+    [source, connector]
+  );
 
   const controlMedia = useCallback(async (action: 'playpause' | 'next' | 'prev') => {
     if (typeof window !== 'undefined' && window.electronAPI?.controlMedia) {
@@ -200,6 +252,9 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [source, connector]);
 
   const setVolume = useCallback(async (level: number) => {
+    if (typeof window !== 'undefined' && window.electronAPI?.setVolume) {
+      window.electronAPI.setVolume(level);
+    }
     if (source === 'live-agent') {
       await connector.setVolume(level);
     }
@@ -208,6 +263,16 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       media: { ...prev.media, volumePct: Math.round(level), isMuted: level === 0 },
     }));
   }, [source, connector]);
+
+  const toggleMute = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.electronAPI?.toggleMute) {
+      window.electronAPI.toggleMute();
+    }
+    setSnapshot((prev) => ({
+      ...prev,
+      media: { ...prev.media, isMuted: !prev.media.isMuted },
+    }));
+  }, []);
 
   const killProcess = useCallback(async (name?: string, pid?: number) => {
     if (source === 'live-agent') {
@@ -235,12 +300,15 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       agentOnline,
       isPinned,
       togglePin,
+      glassSettings,
+      setGlassSettings,
       decideApproval,
       controlMedia,
       setVolume,
+      toggleMute,
       killProcess,
     }),
-    [snapshot, mode, source, agentUrl, setAgentUrl, agentOnline, isPinned, togglePin, decideApproval, controlMedia, setVolume, killProcess]
+    [snapshot, mode, setMode, source, agentUrl, setAgentUrl, agentOnline, isPinned, togglePin, glassSettings, setGlassSettings, decideApproval, controlMedia, setVolume, toggleMute, killProcess]
   );
 
   return <TelemetryContext.Provider value={value}>{children}</TelemetryContext.Provider>;

@@ -3,9 +3,9 @@
 @layer base {
   :root {
     --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    --glass-bg: rgba(22, 24, 29, 0.65);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-border-light: rgba(255, 255, 255, 0.14);
+    --glass-opacity: 0.65;
+    --glass-blur: 28px;
+    --glass-border-opacity: 0.09;
   }
 
   body {
@@ -20,15 +20,15 @@
   }
 }
 
-/* macOS Sonoma / Sequoia Glass Surfaces (Minimal, No Neon) */
+/* macOS Sonoma / Sequoia Glass Surfaces (Minimal, Custom Opacity & Blur) */
 .macos-glass, .glass-panel, .glass-card {
-  background: rgba(18, 20, 26, 0.58);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(18, 20, 26, var(--glass-opacity, 0.65));
+  backdrop-filter: blur(var(--glass-blur, 28px)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--glass-blur, 28px)) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, var(--glass-border-opacity, 0.09));
   box-shadow: 
     0 16px 36px -8px rgba(0, 0, 0, 0.45),
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+    inset 0 1px 1px 0 rgba(255, 255, 255, calc(var(--glass-border-opacity, 0.09) * 1.3));
 }
 
 .macos-squircle {
@@ -36,15 +36,15 @@
 }
 
 .macos-glass-subtle {
-  background: rgba(255, 255, 255, 0.035);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, calc(var(--glass-opacity, 0.65) * 0.08));
+  backdrop-filter: blur(calc(var(--glass-blur, 28px) * 0.6));
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 28px) * 0.6));
+  border: 1px solid rgba(255, 255, 255, var(--glass-border-opacity, 0.09));
 }
 
 .macos-glass-subtle:hover {
-  background: rgba(255, 255, 255, 0.055);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
 }
 
 /* Smooth Apple scrollbars */
@@ -60,5 +60,5 @@
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.3);
 }

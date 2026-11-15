@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, SlidersHorizontal, RotateCcw, Sparkles, Settings, Sidebar, Magnet, LayoutGrid } from 'lucide-react';
+import { Plus, SlidersHorizontal, RotateCcw, Sparkles, Settings, Sidebar, Magnet, LayoutGrid, Sliders, X } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS, DEFAULT_WIDGET_LAYOUT } from '../../lib/widgetRegistry';
 import { clampPosition, snapCoordinate, computeAutoLayout, WIDGET_DIMENSIONS } from '../../lib/layoutUtils';
@@ -11,7 +11,7 @@ import { ClaudeApprovals } from '../modules/ClaudeApprovals';
 import type { WidgetInstance, WidgetType, WidgetSize } from '../../types/widgets';
 
 export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSettings }) => {
-  const { setMode } = useTelemetry();
+  const { setMode, glassSettings, setGlassSettings } = useTelemetry();
 
   const [snapToGrid, setSnapToGrid] = useState<boolean>(() => {
     try {
@@ -20,6 +20,8 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
       return true;
     }
   });
+
+  const [showGlassModal, setShowGlassModal] = useState<boolean>(false);
 
   const [widgets, setWidgets] = useState<WidgetInstance[]>(() => {
     try {
@@ -123,7 +125,8 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
   };
 
   const handleAutoAlign = () => {
-    const autoPositions = computeAutoLayout(widgets);
+    const vpWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    const autoPositions = computeAutoLayout(widgets, vpWidth, true);
     setWidgets((prev) =>
       prev.map((w) => {
         const match = autoPositions.find((a) => a.id === w.id);
@@ -133,7 +136,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
   };
 
   const handleResetLayout = () => {
-    const initialWithPos = computeAutoLayout(DEFAULT_WIDGET_LAYOUT);
+    const initialWithPos = computeAutoLayout(DEFAULT_WIDGET_LAYOUT, typeof window !== 'undefined' ? window.innerWidth : 1920, true);
     setWidgets(
       DEFAULT_WIDGET_LAYOUT.map((w) => {
         const matching = initialWithPos.find((a) => a.id === w.id);
@@ -160,7 +163,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
         </div>
 
         {/* Toolbar Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 relative">
           <button
             onClick={() => setGalleryOpen(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full macos-glass hover:bg-white/20 text-white text-xs font-semibold border border-white/10 shadow-md transition-all cursor-pointer active:scale-95"
@@ -187,6 +190,19 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             className="p-1.5 rounded-full macos-glass hover:bg-white/20 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
           >
             <LayoutGrid className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Glass & Appearance Controls Popover Toggle */}
+          <button
+            onClick={() => setShowGlassModal(!showGlassModal)}
+            title="Customize Glassmorphism Opacity & Blur"
+            className={`p-1.5 rounded-full border transition-colors cursor-pointer ${
+              showGlassModal
+                ? 'bg-white text-slate-950 font-bold border-white'
+                : 'macos-glass hover:bg-white/20 text-slate-300 hover:text-white border-white/10'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
           </button>
 
           <button
@@ -230,6 +246,77 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
               <Settings className="w-3.5 h-3.5" />
             </button>
           )}
+
+          {/* Glassmorphism Settings Modal / Popover */}
+          <AnimatePresence>
+            {showGlassModal && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+                className="absolute right-0 top-11 z-50 w-72 macos-glass macos-squircle p-4 border border-white/15 shadow-2xl flex flex-col gap-3.5 text-white"
+              >
+                <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                  <span className="text-xs font-bold text-white tracking-wide">Glassmorphism Settings</span>
+                  <button onClick={() => setShowGlassModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Opacity Slider */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] text-slate-300">
+                    <span>Glass Opacity</span>
+                    <span className="font-mono">{Math.round(glassSettings.opacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.15"
+                    max="0.95"
+                    step="0.05"
+                    value={glassSettings.opacity}
+                    onChange={(e) => setGlassSettings({ opacity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+                  />
+                </div>
+
+                {/* Blur Slider */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] text-slate-300">
+                    <span>Blur Strength</span>
+                    <span className="font-mono">{glassSettings.blur}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="8"
+                    max="40"
+                    step="2"
+                    value={glassSettings.blur}
+                    onChange={(e) => setGlassSettings({ blur: parseInt(e.target.value, 10) })}
+                    className="w-full h-1 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+                  />
+                </div>
+
+                {/* Border Glow Slider */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[11px] text-slate-300">
+                    <span>Border Glow</span>
+                    <span className="font-mono">{Math.round(glassSettings.borderOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.04"
+                    max="0.30"
+                    step="0.02"
+                    value={glassSettings.borderOpacity}
+                    onChange={(e) => setGlassSettings({ borderOpacity: parseFloat(e.target.value) })}
+                    className="w-full h-1 bg-white/20 rounded appearance-none cursor-pointer accent-emerald-400"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -270,9 +357,9 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
                   const clamped = clampPosition(newX, newY, dim.width, dim.height);
                   handleUpdatePosition(widget.id, clamped.x, clamped.y);
                 }}
-                style={{ position: 'absolute', top: 0, left: 0 }}
                 data-interactive="true"
-                className="touch-none pointer-events-auto"
+                className="absolute top-0 left-0 pointer-events-auto select-none"
+                style={{ width: dim.width, height: dim.height }}
               >
                 <WidgetShell
                   id={widget.id}
@@ -290,12 +377,9 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             );
           })}
         </AnimatePresence>
-      </div>
 
-      {/* Empty State */}
-      {widgets.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-20 pointer-events-none">
-          <div data-interactive="true" className="macos-glass macos-squircle p-8 max-w-sm flex flex-col items-center border border-white/10 shadow-2xl pointer-events-auto">
+        {widgets.length === 0 && (
+          <div data-interactive="true" className="h-full flex flex-col items-center justify-center pointer-events-auto">
             <Sparkles className="w-10 h-10 text-slate-400 mb-3" />
             <h3 className="text-base font-semibold text-white">No Desktop Widgets</h3>
             <p className="text-xs text-slate-400 mt-1 mb-5">
@@ -303,22 +387,20 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             </p>
             <button
               onClick={() => setGalleryOpen(true)}
-              className="px-5 py-2 rounded-xl bg-white text-slate-950 font-bold text-xs cursor-pointer hover:bg-slate-200 transition-colors shadow-md"
+              className="px-4 py-2 rounded-full bg-white text-slate-950 font-semibold text-xs shadow-lg hover:bg-white/90 transition-transform active:scale-95 cursor-pointer"
             >
-              Open Widget Gallery
+              Add First Widget
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Widget Gallery Drawer/Modal */}
-      <div data-interactive="true" className="pointer-events-auto">
-        <WidgetGallery
-          isOpen={galleryOpen}
-          onClose={() => setGalleryOpen(false)}
-          onAddWidget={handleAddWidget}
-        />
+        )}
       </div>
+
+      {/* Widget Gallery Modal */}
+      <WidgetGallery
+        isOpen={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        onAddWidget={handleAddWidget}
+      />
     </div>
   );
 };

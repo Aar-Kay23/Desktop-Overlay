@@ -19,16 +19,69 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
 
   if (size === 'S') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center">
+      <div className="flex-1 flex flex-col items-center justify-center p-0.5">
         <CircularGauge
           value={primary.sessionLimit.usedPct}
-          size={90}
-          strokeWidth={8}
+          size={78}
+          strokeWidth={7}
           unit="%"
           color="cyan"
           label="Session"
-          subLabel={primary.activeModel}
+          subLabel={primary.displayName}
         />
+      </div>
+    );
+  }
+
+  if (size === 'V') {
+    return (
+      <div className="flex-1 flex flex-col justify-between py-1">
+        <div className="flex items-center justify-between pb-1 border-b border-white/10">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="text-xs font-bold text-white">{primary.displayName}</span>
+          </div>
+          {primary.burnRateTokensPerMin && (
+            <span className="text-[9px] font-mono text-amber-300 flex items-center gap-0.5">
+              <Flame className="w-2.5 h-2.5" /> {primary.burnRateTokensPerMin} t/m
+            </span>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2 my-auto">
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between text-[10px] font-mono">
+              <span className="text-slate-400">Burst Limit</span>
+              <span className="text-white font-semibold">{Math.round(primary.sessionLimit.usedPct)}%</span>
+            </div>
+            <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={4} />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <div className="flex justify-between text-[10px] font-mono">
+              <span className="text-slate-400">Weekly Pool</span>
+              <span className="text-slate-300">{Math.round(primary.weeklyLimit.usedPct)}%</span>
+            </div>
+            <ProgressBar value={primary.weeklyLimit.usedPct} color="violet" height={4} />
+          </div>
+
+          {quotas[1] && (
+            <div className="flex flex-col gap-1 pt-1.5 border-t border-white/5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-slate-300 font-medium">{quotas[1].displayName}</span>
+                <span className="text-amber-400 font-mono">{Math.round(quotas[1].sessionLimit.usedPct)}%</span>
+              </div>
+              <ProgressBar value={quotas[1].sessionLimit.usedPct} color="amber" height={3.5} />
+            </div>
+          )}
+        </div>
+
+        {primary.sessionLimit.resetsInHours && (
+          <div className="flex justify-between items-center text-[9px] text-slate-500 font-mono pt-1 border-t border-white/10">
+            <span>Model: {primary.activeModel}</span>
+            <span>Resets {primary.sessionLimit.resetsInHours}h</span>
+          </div>
+        )}
       </div>
     );
   }
@@ -85,21 +138,21 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
 
   // Large (L)
   return (
-    <div className="flex-1 flex flex-col justify-between gap-3">
+    <div className="flex-1 flex flex-col justify-between gap-2.5">
       <div>
         <div className="flex items-baseline justify-between mb-0.5">
-          <span className="text-xl font-bold tracking-tight text-white flex items-center gap-1.5">
+          <span className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-cyan-400" /> AI Coding Quotas
           </span>
         </div>
-        <p className="text-[11px] text-slate-400 font-mono">
+        <p className="text-[10px] text-slate-400 font-mono">
           Model Token Pools & Rate Limits
         </p>
       </div>
 
-      <div className="flex flex-col gap-2.5 my-auto">
+      <div className="flex flex-col gap-2 my-auto">
         {quotas.map((q) => (
-          <div key={q.provider} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-1.5">
+          <div key={q.provider} className="p-2 rounded-xl bg-white/[0.02] border border-white/5 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 {q.provider === 'claude' ? (
@@ -113,14 +166,14 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
             </div>
 
             <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-[11px] font-mono">
+              <div className="flex justify-between text-[10px] font-mono">
                 <span className="text-slate-400">Usage</span>
                 <span className="text-white font-bold">{Math.round(q.sessionLimit.usedPct)}%</span>
               </div>
               <ProgressBar
                 value={q.sessionLimit.usedPct}
                 color={q.provider === 'claude' ? 'amber' : 'cyan'}
-                height={5}
+                height={4.5}
               />
             </div>
           </div>
@@ -129,4 +182,3 @@ export const AiQuotaWidget: React.FC<WidgetProps> = ({ size }) => {
     </div>
   );
 };
-

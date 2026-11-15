@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { Plus, SlidersHorizontal, RotateCcw, GripHorizontal, LayoutGrid } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, SlidersHorizontal, RotateCcw, GripHorizontal, LayoutGrid, Columns2 } from 'lucide-react';
 import { useTelemetry } from '../../context/TelemetryContext';
 import { WIDGET_CATALOG, WIDGET_ICONS } from '../../lib/widgetRegistry';
 import { setGlobalDragging } from '../../hooks/useClickThrough';
@@ -31,10 +31,19 @@ export const SidebarDock: React.FC = () => {
     }
   });
 
+  const [pairSmallWidgets, setPairSmallWidgets] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('desktop_overlay_dock_pair_small');
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+
   const [editMode, setEditMode] = useState<boolean>(false);
   const [galleryOpen, setGalleryOpen] = useState<boolean>(false);
 
-  // Persist dock layout
+  // Persist dock layout & pair setting
   useEffect(() => {
     try {
       localStorage.setItem('desktop_overlay_dock_layout', JSON.stringify(widgets));
@@ -42,6 +51,12 @@ export const SidebarDock: React.FC = () => {
       console.error('Failed to save dock layout', err);
     }
   }, [widgets]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('desktop_overlay_dock_pair_small', String(pairSmallWidgets));
+    } catch {}
+  }, [pairSmallWidgets]);
 
   const handleResize = (id: string, newSize: WidgetSize) => {
     setWidgets((prev) =>
@@ -66,6 +81,29 @@ export const SidebarDock: React.FC = () => {
     setWidgets(DEFAULT_DOCK_LAYOUT);
   };
 
+  // Group consecutive 'S' widgets when pairing is enabled
+  const renderGroups = useMemo(() => {
+    if (!pairSmallWidgets || editMode) {
+      return widgets.map((w) => ({ id: w.id, type: 'single' as const, items: [w] }));
+    }
+
+    const groups: Array<{ id: string; type: 'pair' | 'single'; items: WidgetInstance[] }> = [];
+    let i = 0;
+    while (i < widgets.length) {
+      const current = widgets[i];
+      const next = widgets[i + 1];
+
+      if (current.size === 'S' && next && next.size === 'S') {
+        groups.push({ id: `${current.id}_${next.id}`, type: 'pair', items: [current, next] });
+        i += 2;
+      } else {
+        groups.push({ id: current.id, type: 'single', items: [current] });
+        i += 1;
+      }
+    }
+    return groups;
+  }, [widgets, pairSmallWidgets, editMode]);
+
   return (
     <div className="min-h-screen p-4 flex justify-end items-start pointer-events-none select-none">
       {/* Floating Draggable macOS Dock Container */}
@@ -79,7 +117,7 @@ export const SidebarDock: React.FC = () => {
         onDragStart={() => setGlobalDragging(true)}
         onDragEnd={() => setGlobalDragging(false)}
         data-interactive="true"
-        className="w-full max-w-[380px] macos-glass macos-squircle p-4 shadow-2xl border border-white/10 flex flex-col gap-3 pointer-events-auto max-h-[94vh] overflow-y-auto"
+        className="w-full max-w-[390px] macos-glass macos-squircle p-4 shadow-2xl border border-white/10 flex flex-col gap-3 pointer-events-auto max-h-[94vh] overflow-y-auto"
       >
         {/* Dock Header & Drag Handle */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10 cursor-grab active:cursor-grabbing">
@@ -102,9 +140,20 @@ export const SidebarDock: React.FC = () => {
               <Plus className="w-3.5 h-3.5" />
             </button>
 
+            {/* Toggle 2-column pairing for small widgets */}
+            <button
+              onClick={() => setPairSmallWidgets(!pairSmallWidgets)}
+              title={pairSmallWidgets ? 'Small Widgets: 2-Column Paired (Click to Unpair)' : 'Small Widgets: Single Column (Click to Pair 2x)'}
+              className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+                pairSmallWidgets ? 'bg-white/20 text-white shadow-sm' : 'bg-white/5 hover:bg-white/10 text-slate-400'
+              }`}
+            >
+              <Columns2 className="w-3.5 h-3.5" />
+            </button>
+
             <button
               onClick={() => setEditMode(!editMode)}
-              title="Toggle Edit Mode (Resize / Remove)"
+              title="Toggle Edit Mode (Resize / Remove / Reorder)"
               className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                 editMode ? 'bg-white text-slate-950 font-bold' : 'bg-white/5 hover:bg-white/10 text-slate-300'
               }`}
@@ -136,24 +185,71 @@ export const SidebarDock: React.FC = () => {
         <ClaudeApprovals />
 
         {/* Reorderable Modular Stack */}
-        <Reorder.Group
-          axis="y"
-          values={widgets}
-          onReorder={setWidgets}
-          className="flex flex-col gap-3"
-        >
+        <div className="flex flex-col gap-3">
           <AnimatePresence mode="popLayout">
-            {widgets.map((widget) => {
+            {renderGroups.map((group) => {
+              if (group.type === 'pair') {
+                const [w1, w2] = group.items;
+                const def1 = WIDGET_CATALOG[w1.type];
+                const def2 = WIDGET_CATALOG[w2.type];
+                if (!def1 || !def2) return null;
+
+                const Icon1 = WIDGET_ICONS[w1.type];
+                const Icon2 = WIDGET_ICONS[w2.type];
+                const Comp1 = def1.component;
+                const Comp2 = def2.component;
+
+                return (
+                  <motion.div
+                    key={group.id}
+                    layout
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="grid grid-cols-2 gap-2.5 w-full max-w-[344px] mx-auto select-none"
+                  >
+                    <WidgetShell
+                      id={w1.id}
+                      title={def1.title}
+                      icon={<Icon1 className="w-3.5 h-3.5" />}
+                      size="S"
+                      supportedSizes={def1.supportedSizes}
+                      onResize={(newSize) => handleResize(w1.id, newSize)}
+                      onRemove={() => handleRemove(w1.id)}
+                      editMode={editMode}
+                    >
+                      <Comp1 size="S" />
+                    </WidgetShell>
+
+                    <WidgetShell
+                      id={w2.id}
+                      title={def2.title}
+                      icon={<Icon2 className="w-3.5 h-3.5" />}
+                      size="S"
+                      supportedSizes={def2.supportedSizes}
+                      onResize={(newSize) => handleResize(w2.id, newSize)}
+                      onRemove={() => handleRemove(w2.id)}
+                      editMode={editMode}
+                    >
+                      <Comp2 size="S" />
+                    </WidgetShell>
+                  </motion.div>
+                );
+              }
+
+              const widget = group.items[0];
               const def = WIDGET_CATALOG[widget.type];
               if (!def) return null;
               const Icon = WIDGET_ICONS[widget.type];
               const Component = def.component;
 
               return (
-                <Reorder.Item
+                <motion.div
                   key={widget.id}
-                  value={widget}
-                  dragListener={editMode}
+                  layout
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
                   className="flex justify-center cursor-default select-none"
                 >
                   <WidgetShell
@@ -168,24 +264,11 @@ export const SidebarDock: React.FC = () => {
                   >
                     <Component size={widget.size} />
                   </WidgetShell>
-                </Reorder.Item>
+                </motion.div>
               );
             })}
           </AnimatePresence>
-        </Reorder.Group>
-
-        {/* Empty Dock State */}
-        {widgets.length === 0 && (
-          <div className="py-8 text-center flex flex-col items-center">
-            <span className="text-xs text-slate-400 mb-3">No widgets pinned to dock</span>
-            <button
-              onClick={() => setGalleryOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-white text-slate-950 font-bold text-xs cursor-pointer hover:bg-slate-200"
-            >
-              Add Widget
-            </button>
-          </div>
-        )}
+        </div>
       </motion.div>
 
       {/* Widget Gallery Modal */}

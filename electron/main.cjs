@@ -13,7 +13,7 @@ if (typeof electron === 'string') {
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
-const { sendMediaControl, stopMediaDaemon } = require('./media.cjs');
+const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
 
 // Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
 const gotTheLock = app.requestSingleInstanceLock();
@@ -55,7 +55,7 @@ function createWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    minimizable: true, // Required so 'minimize' event triggers on Win+D / Show Desktop
+    minimizable: true, // Required so Win+D minimize commands are intercepted
     type: 'toolbar',   // WS_EX_TOOLWINDOW style on Windows
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -80,21 +80,49 @@ function createWindow() {
       win.loadFile(prodPath);
     });
 
+  // Win32 System Command Hook to catch and mitigate Win+D / Show Desktop minimize sweeps
+  if (process.platform === 'win32') {
+    const WM_SYSCOMMAND = 0x0112;
+    const SC_MINIMIZE = 0xF020;
+    try {
+      win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
+        const cmd = wParam.readUInt32LE(0) & 0xFFF0;
+        if (cmd === SC_MINIMIZE && !isUserHidden) {
+          [80, 220, 450].forEach((delay) => {
+            setTimeout(() => {
+              if (win && !win.isDestroyed() && !isUserHidden) {
+                if (win.isMinimized()) win.restore();
+                win.showInactive();
+                if (!isAlwaysOnTop) {
+                  win.setAlwaysOnTop(false);
+                  win.blur();
+                }
+              }
+            }, delay);
+          });
+        }
+      });
+    } catch {}
+  }
+
   // Win+D / Show Desktop protection:
   // When Win+D or taskbar "Show Desktop" is triggered, Windows DWM commands a minimize.
-  // We intercept it, allow DWM to finish minimizing other foreground windows (60ms), then restore the desktop layer.
+  // We intercept it, allow DWM to finish minimizing foreground windows, then restore the desktop layer.
   win.on('minimize', (e) => {
     e.preventDefault();
-    setTimeout(() => {
-      if (win && !win.isDestroyed() && !isUserHidden) {
-        win.restore();
-        win.showInactive();
-        if (!isAlwaysOnTop) {
-          win.setAlwaysOnTop(false);
-          win.blur(); // Yield keyboard and mouse focus back to Windows desktop Explorer
+    if (isUserHidden) return;
+    [80, 220, 450].forEach((delay) => {
+      setTimeout(() => {
+        if (win && !win.isDestroyed() && !isUserHidden) {
+          if (win.isMinimized()) win.restore();
+          win.showInactive();
+          if (!isAlwaysOnTop) {
+            win.setAlwaysOnTop(false);
+            win.blur(); // Yield keyboard and mouse focus back to Windows desktop Explorer
+          }
         }
-      }
-    }, 60);
+      }, delay);
+    });
   });
 
   // Prevent unwanted DWM hide on Show Desktop sweeps
@@ -102,13 +130,14 @@ function createWindow() {
     if (!isUserHidden && !app.isQuitting) {
       setTimeout(() => {
         if (win && !win.isDestroyed() && !isUserHidden) {
+          if (win.isMinimized()) win.restore();
           win.showInactive();
           if (!isAlwaysOnTop) {
             win.setAlwaysOnTop(false);
             win.blur();
           }
         }
-      }, 60);
+      }, 100);
     }
   });
 
@@ -149,7 +178,7 @@ function startTelemetryBroadcast() {
 }
 
 function createTray() {
-  const iconPath = path.join(__dirname, '..', 'public', 'favicon.svg');
+  const iconPath = path.join(__dirname, '..', 'public', 'tray-icon.png');
   let icon;
   try {
     icon = nativeImage.createFromPath(iconPath);
@@ -205,8 +234,18 @@ function createTray() {
 }
 
 function toggleVisibility() {
-  if (!win) {
+  if (!win || win.isDestroyed()) {
     createWindow();
+    return;
+  }
+  if (win.isMinimized()) {
+    isUserHidden = false;
+    win.restore();
+    win.show();
+    if (!isAlwaysOnTop) {
+      win.setAlwaysOnTop(false);
+      win.blur();
+    }
     return;
   }
   if (win.isVisible() && !isUserHidden) {
@@ -215,6 +254,7 @@ function toggleVisibility() {
   } else {
     isUserHidden = false;
     win.show();
+    win.restore();
     if (!isAlwaysOnTop) {
       win.setAlwaysOnTop(false);
       win.blur();
@@ -257,11 +297,19 @@ ipcMain.on('media:control', (_event, action) => {
   sendMediaControl(action);
 });
 
+ipcMain.on('media:volume', (_event, vol) => {
+  setMasterVolume(vol);
+});
+
+ipcMain.on('media:mute', () => {
+  toggleMasterMute();
+});
+
 ipcMain.on('system:action', (_event, action) => {
   if (process.platform !== 'win32') return;
   const { exec } = require('child_process');
   if (action === 'mute') {
-    exec('powershell -Command "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"');
+    toggleMasterMute();
   } else if (action === 'lock') {
     exec('rundll32.exe user32.dll,LockWorkStation');
   } else if (action === 'taskmgr') {

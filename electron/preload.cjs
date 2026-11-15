@@ -19,8 +19,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   controlMedia: (action) => {
     ipcRenderer.send('media:control', action);
   },
+  setVolume: (vol) => {
+    ipcRenderer.send('media:volume', vol);
+  },
+  toggleMute: () => {
+    ipcRenderer.send('media:mute');
+  },
   systemAction: (action) => {
     ipcRenderer.send('system:action', action);
   },
 });
-

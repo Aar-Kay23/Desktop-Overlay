@@ -40,31 +40,36 @@ export function snapCoordinate(value: number, step = 20): number {
 }
 
 /**
- * Computes non-overlapping default positions for a list of widgets
+ * Computes non-overlapping packed grid positions for widgets
  */
 export function computeAutoLayout(
   widgets: Array<{ id: string; size: WidgetSize; position?: { x: number; y: number } }>,
-  viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920
+  viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1920,
+  forceRecalculate = false
 ): Array<{ id: string; x: number; y: number }> {
-  let currentX = SCREEN_PADDING;
-  let currentY = TOP_BAR_PADDING + 10;
+  let currentX = SCREEN_PADDING + 10;
+  let currentY = TOP_BAR_PADDING + 14;
   let rowHeight = 0;
-  const gap = 16;
+  const gap = 18;
 
   return widgets.map((w) => {
     const dim = WIDGET_DIMENSIONS[w.size];
-    
+
+    if (!forceRecalculate && w.position) {
+      return { id: w.id, x: w.position.x, y: w.position.y };
+    }
+
     // Check if adding this widget exceeds viewport width
-    if (currentX + dim.width + SCREEN_PADDING > viewportWidth && currentX > SCREEN_PADDING) {
-      currentX = SCREEN_PADDING;
+    if (currentX + dim.width + SCREEN_PADDING > viewportWidth && currentX > SCREEN_PADDING + 10) {
+      currentX = SCREEN_PADDING + 10;
       currentY += rowHeight + gap;
       rowHeight = 0;
     }
 
     const pos = {
       id: w.id,
-      x: w.position ? w.position.x : currentX,
-      y: w.position ? w.position.y : currentY,
+      x: currentX,
+      y: currentY,
     };
 
     rowHeight = Math.max(rowHeight, dim.height);
@@ -73,4 +78,3 @@ export function computeAutoLayout(
     return pos;
   });
 }
-
