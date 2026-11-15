@@ -172,7 +172,7 @@ public class ForegroundTracker {
     public static bool IsDesktopForeground() {
         try {
             IntPtr hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return true;
+            if (hwnd == IntPtr.Zero) return false;
 
             uint pid = 0;
             GetWindowThreadProcessId(hwnd, out pid);
@@ -190,7 +190,7 @@ public class ForegroundTracker {
                    cls == "Windows.UI.Core.CoreWindow" ||
                    cls == "XamlExplorerHostIslandWindow";
         } catch {
-            return true;
+            return false;
         }
     }
 }
@@ -198,7 +198,12 @@ public class ForegroundTracker {
 public class ForegroundWatcher {
     public static void Start() {
         Thread t = new Thread(new ThreadStart(delegate() {
-            bool lastState = true;
+            bool lastState = false;
+            try {
+                lastState = ForegroundTracker.IsDesktopForeground();
+                Console.WriteLine("{\"type\":\"desktop_state\",\"isDesktop\":" + (lastState ? "true" : "false") + "}");
+            } catch {}
+
             while (true) {
                 try {
                     bool curState = ForegroundTracker.IsDesktopForeground();
@@ -207,7 +212,7 @@ public class ForegroundWatcher {
                         Console.WriteLine("{\"type\":\"desktop_state\",\"isDesktop\":" + (curState ? "true" : "false") + "}");
                     }
                 } catch {}
-                Thread.Sleep(100);
+                Thread.Sleep(120);
             }
         }));
         t.IsBackground = true;

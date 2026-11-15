@@ -48,6 +48,14 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.electronAPI?.onModeChange) {
+      return window.electronAPI.onModeChange((newMode: OverlayMode) => {
+        setModeState(newMode);
+      });
+    }
+  }, []);
+
   const [source, setSource] = useState<ConnectionSource>('simulation');
   const [agentUrl, setAgentUrlState] = useState<string>(() => {
     try {

@@ -1,7 +1,8 @@
 export interface ElectronAPI {
   isElectron: boolean;
   onTelemetry: (callback: (data: any) => void) => () => void;
-  setInteractive: (interactive) => void;
+  onModeChange?: (callback: (mode: any) => void) => () => void;
+  setInteractive: (interactive: boolean) => void;
   toggleAlwaysOnTop: () => void;
   setOverlayMode?: (mode: string) => void;
   controlMedia?: (action: 'playpause' | 'next' | 'prev') => void;

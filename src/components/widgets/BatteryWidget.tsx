@@ -18,8 +18,8 @@ export const BatteryWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
   const isCharging = battery.isCharging || battery.acConnected;
 
   // Ring calculations
-  const radius = size === 'S' ? 36 : size === 'M' ? 37 : 54;
-  const stroke = size === 'S' ? 6 : size === 'M' ? 6 : 7;
+  const radius = size === 'S' ? 36 : size === 'M' ? 34 : 54;
+  const stroke = size === 'S' ? 6 : size === 'M' ? 5 : 7;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (pct / 100) * circumference;
 
@@ -107,30 +107,30 @@ export const BatteryWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
           </div>
 
           {/* Details */}
-          <div className="flex-1 flex flex-col justify-center space-y-1.5 text-xs">
+          <div className="flex-1 flex flex-col justify-center space-y-1 text-xs">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-slate-400 flex items-center gap-1.5 text-[11px]">
+                <Zap className="w-3 h-3 text-amber-400 shrink-0" />
                 Power Source
               </span>
-              <span className="text-slate-200 font-medium">
+              <span className="text-slate-200 font-medium text-[11px]">
                 {isCharging ? 'Power Adapter' : 'Battery'}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-slate-400 flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-slate-400 flex items-center gap-1.5 text-[11px]">
+                <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
                 Condition
               </span>
-              <span className="text-emerald-400 font-semibold text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+              <span className="text-emerald-400 font-semibold text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                 Normal (Good)
               </span>
             </div>
 
             <div className="flex items-center justify-between text-[10px]">
               <span className="text-slate-500 font-mono">Model</span>
-              <span className="text-slate-400 font-mono truncate max-w-[120px]">
+              <span className="text-slate-400 font-mono truncate max-w-[130px]">
                 {battery.model || 'Dell OEM'}
               </span>
             </div>

@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('telemetry:update', handler);
     return () => ipcRenderer.removeListener('telemetry:update', handler);
   },
+  onModeChange: (callback) => {
+    const handler = (_event, mode) => callback(mode);
+    ipcRenderer.on('mode:change', handler);
+    return () => ipcRenderer.removeListener('mode:change', handler);
+  },
   setInteractive: (interactive) => {
     ipcRenderer.send('set-interactive', interactive);
   },

@@ -32,34 +32,36 @@ if (!gotTheLock) {
   process.exit(0);
 }
 
-let win = null;
+let desktopWin = null;
+let islandWin = null;
 let tray = null;
-let isAlwaysOnTop = false; // User manual "Float Above All Windows" preference from tray
-let isUserHidden = false;   // Distinguishes intentional user hides from OS/Win+D minimize
-let isDesktopActive = true; // Tracks whether Windows desktop or shell is the active focus
-let currentMode = 'canvas'; // 'canvas' | 'sidebar' | 'hud' | 'dashboard' | 'minibar'
+let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
+let isDesktopVisible = true;  // Desktop widgets layer visibility
+let isIslandVisible = true;   // Dynamic island HUD visibility
+let isDesktopActive = false;  // Whether desktop wallpaper / shell is the foreground focus
+let _currentMode = 'canvas';  // 'canvas' | 'sidebar' | 'dashboard' | 'minibar' | 'hud'
 let telemetryTimer = null;
 
 function handleDesktopStateChange(desktopActive) {
   if (isDesktopActive === desktopActive) return;
   isDesktopActive = desktopActive;
 
-  if (isUserHidden || !win || win.isDestroyed()) return;
+  if (!desktopWin || desktopWin.isDestroyed() || !isDesktopVisible) return;
 
-  // Manual override or Dynamic Island HUD mode: always stay on top
-  if (isAlwaysOnTop || currentMode === 'hud') {
-    win.setAlwaysOnTop(true, 'floating');
+  // Manual user override: always stay on top
+  if (isAlwaysOnTop) {
+    desktopWin.setAlwaysOnTop(true, 'floating');
     return;
   }
 
   if (desktopActive) {
     // Desktop wallpaper / shell / taskbar is active: keep overlay above Progman/WorkerW
-    win.setAlwaysOnTop(true, 'floating');
-    if (win.isMinimized()) win.restore();
-    win.show();
+    desktopWin.setAlwaysOnTop(true, 'floating');
+    if (desktopWin.isMinimized()) desktopWin.restore();
+    desktopWin.show();
   } else {
     // User switched to full foreground app (Chrome, Word, VS Code): drop behind so app has full focus
-    win.setAlwaysOnTop(false);
+    desktopWin.setAlwaysOnTop(false);
   }
 }
 
@@ -67,29 +69,51 @@ setDesktopStateListener((isDesktop) => {
   handleDesktopStateChange(isDesktop);
 });
 
-function getWindowBounds() {
+function getDesktopBounds() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x, y, width, height } = primaryDisplay.workArea;
-
-  return {
-    x: x,
-    y: y,
-    width: width,
-    height: height,
-  };
+  return { x, y, width, height };
 }
 
-function createWindow() {
-  const bounds = getWindowBounds();
+function getIslandBounds() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { workArea } = primaryDisplay;
+  const width = 440;
+  const height = 260;
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = workArea.y + 4;
+  return { x, y, width, height };
+}
 
-  win = new BrowserWindow({
+async function loadWindow(targetWin, hash = '') {
+  const devUrl = 'http://localhost:5173';
+  const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 350);
+
+  try {
+    await fetch(devUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    targetWin.loadURL(`${devUrl}${hash ? '#' + hash : ''}`);
+  } catch {
+    clearTimeout(timeoutId);
+    targetWin.loadFile(prodPath, { hash });
+  }
+}
+
+function createDesktopWindow() {
+  if (desktopWin && !desktopWin.isDestroyed()) return;
+  const bounds = getDesktopBounds();
+
+  desktopWin = new BrowserWindow({
     x: bounds.x,
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: isAlwaysOnTop, // Desktop layer: false by default so regular apps sit in front
     skipTaskbar: true,
     hasShadow: false,
     resizable: true,
@@ -104,28 +128,13 @@ function createWindow() {
   });
 
   // Enable click-through by default so desktop icons, taskbar, and background apps remain fully usable
-  win.setIgnoreMouseEvents(true, { forward: true });
+  desktopWin.setIgnoreMouseEvents(true, { forward: true });
 
-  // Load production dist or local dev server
-  const devUrl = 'http://localhost:5173';
-  const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
+  loadWindow(desktopWin, 'desktop');
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 300);
-
-  fetch(devUrl, { signal: controller.signal })
-    .then(() => {
-      clearTimeout(timeoutId);
-      win.loadURL(devUrl);
-    })
-    .catch(() => {
-      clearTimeout(timeoutId);
-      win.loadFile(prodPath);
-    });
-
-  win.once('ready-to-show', () => {
-    if (!isUserHidden && win && !win.isDestroyed()) {
-      win.show();
+  desktopWin.once('ready-to-show', () => {
+    if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
+      desktopWin.show();
     }
   });
 
@@ -134,15 +143,15 @@ function createWindow() {
     const WM_SYSCOMMAND = 0x0112;
     const SC_MINIMIZE = 0xf020;
     try {
-      win.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
+      desktopWin.hookWindowMessage(WM_SYSCOMMAND, (wParam) => {
         const cmd = wParam.readUInt32LE(0) & 0xfff0;
-        if (cmd === SC_MINIMIZE && !isUserHidden) {
+        if (cmd === SC_MINIMIZE && isDesktopVisible) {
           [60, 180, 350].forEach((delay) => {
             setTimeout(() => {
-              if (win && !win.isDestroyed() && !isUserHidden) {
-                if (win.isMinimized()) win.restore();
-                win.show();
-                if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
+              if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
+                if (desktopWin.isMinimized()) desktopWin.restore();
+                desktopWin.show();
+                if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
               }
             }, delay);
           });
@@ -151,135 +160,172 @@ function createWindow() {
     } catch {}
   }
 
-  // Win+D / Show Desktop protection:
-  // When Win+D or taskbar "Show Desktop" is triggered, Windows DWM commands a minimize.
-  // We intercept it, allow DWM to finish minimizing foreground windows, then restore the desktop layer cleanly.
-  win.on('minimize', (e) => {
+  // Intercept DWM minimize event
+  desktopWin.on('minimize', (e) => {
     e.preventDefault();
-    if (isUserHidden) return;
+    if (!isDesktopVisible) return;
     [60, 180, 350].forEach((delay) => {
       setTimeout(() => {
-        if (win && !win.isDestroyed() && !isUserHidden) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
+        if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
+          if (desktopWin.isMinimized()) desktopWin.restore();
+          desktopWin.show();
+          if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
         }
       }, delay);
     });
   });
 
-  // Prevent unwanted DWM hide on Show Desktop sweeps
-  win.on('hide', () => {
-    if (!isUserHidden && !app.isQuitting) {
-      setTimeout(() => {
-        if (win && !win.isDestroyed() && !isUserHidden) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
-        }
-      }, 100);
+  desktopWin.on('closed', () => {
+    desktopWin = null;
+  });
+}
+
+function createIslandWindow() {
+  if (islandWin && !islandWin.isDestroyed()) return;
+  const bounds = getIslandBounds();
+
+  islandWin = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true, // Dynamic Island is permanently pinned over all apps
+    skipTaskbar: true,
+    hasShadow: false,
+    resizable: false,
+    focusable: true,
+    minimizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      backgroundThrottling: false,
+    },
+  });
+
+  // Pin topmost above all standard windows (like iOS Dynamic Island)
+  islandWin.setAlwaysOnTop(true, 'screen-saver');
+  // Enable click-through: transparent empty space around the pill passes clicks through to browser tabs & titlebars
+  islandWin.setIgnoreMouseEvents(true, { forward: true });
+
+  loadWindow(islandWin, 'island');
+
+  islandWin.once('ready-to-show', () => {
+    if (isIslandVisible && islandWin && !islandWin.isDestroyed()) {
+      islandWin.show();
     }
   });
 
-  win.on('closed', () => {
-    win = null;
-    if (telemetryTimer) clearInterval(telemetryTimer);
+  islandWin.on('closed', () => {
+    islandWin = null;
   });
-
-  // Start real hardware telemetry polling loop
-  startTelemetryBroadcast();
 }
 
 function startTelemetryBroadcast() {
   if (telemetryTimer) clearInterval(telemetryTimer);
 
   telemetryTimer = setInterval(async () => {
-    if (win && !win.isDestroyed()) {
-      // Periodic safeguard: auto-recover if Windows silently minimized the window
-      if (!isUserHidden && win.isMinimized()) {
-        win.restore();
-        win.show();
-        if (isAlwaysOnTop) win.setAlwaysOnTop(true, 'floating');
-      }
+    // Periodic safeguard: auto-recover if Windows silently minimized desktop widgets
+    if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed() && desktopWin.isMinimized()) {
+      desktopWin.restore();
+      desktopWin.show();
+      if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+    }
 
-      const data = await getSystemTelemetry();
-      if (data) {
-        win.webContents.send('telemetry:update', data);
+    const data = await getSystemTelemetry();
+    if (data) {
+      if (desktopWin && !desktopWin.isDestroyed()) {
+        desktopWin.webContents.send('telemetry:update', data);
+      }
+      if (islandWin && !islandWin.isDestroyed()) {
+        islandWin.webContents.send('telemetry:update', data);
       }
     }
   }, 2000);
 }
 
-function bringToFront() {
-  if (!win || win.isDestroyed()) {
-    createWindow();
+function toggleDesktopWidgets(forceState) {
+  isDesktopVisible = typeof forceState === 'boolean' ? forceState : !isDesktopVisible;
+  if (!desktopWin || desktopWin.isDestroyed()) {
+    if (isDesktopVisible) createDesktopWindow();
     return;
   }
-  isUserHidden = false;
-  if (win.isMinimized()) {
-    win.restore();
+  if (isDesktopVisible) {
+    if (desktopWin.isMinimized()) desktopWin.restore();
+    desktopWin.show();
+    if (isAlwaysOnTop || isDesktopActive) desktopWin.setAlwaysOnTop(true, 'floating');
+  } else {
+    desktopWin.hide();
   }
-  win.show();
-  win.setAlwaysOnTop(true, 'floating');
-  win.focus();
+  if (tray) updateTrayMenu();
 }
 
-function toggleVisibility() {
-  if (!win || win.isDestroyed()) {
-    createWindow();
+function toggleDynamicIsland(forceState) {
+  isIslandVisible = typeof forceState === 'boolean' ? forceState : !isIslandVisible;
+  if (!islandWin || islandWin.isDestroyed()) {
+    if (isIslandVisible) createIslandWindow();
     return;
   }
-  if (win.isMinimized() || !win.isVisible() || isUserHidden) {
-    bringToFront();
+  if (isIslandVisible) {
+    islandWin.show();
+    islandWin.setAlwaysOnTop(true, 'screen-saver');
   } else {
-    isUserHidden = true;
-    win.hide();
+    islandWin.hide();
   }
+  if (tray) updateTrayMenu();
 }
+
+let updateTrayMenu = () => {};
 
 function createTray() {
   const iconPath = path.join(__dirname, '..', 'public', 'tray-icon.png');
   let icon;
   try {
-    icon = nativeImage.createFromPath(iconPath);
+    const raw = nativeImage.createFromPath(iconPath);
+    icon = raw.isEmpty() ? nativeImage.createEmpty() : raw.resize({ width: 16, height: 16 });
   } catch {
     icon = nativeImage.createEmpty();
   }
 
   try {
     tray = new Tray(icon.isEmpty() ? nativeImage.createFromBuffer(Buffer.alloc(0)) : icon);
-    tray.setToolTip('Desktop Widgets');
+    tray.setToolTip('Desktop Widgets & Dynamic Island');
   } catch {}
 
-  const updateMenu = () => {
+  updateTrayMenu = () => {
+    if (!tray) return;
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: 'Show Desktop Widgets',
-        click: () => bringToFront(),
+        label: 'Dynamic Island (Pinned Over All Apps)',
+        type: 'checkbox',
+        checked: isIslandVisible,
+        click: (item) => toggleDynamicIsland(item.checked),
       },
       {
-        label: 'Hide Desktop Widgets',
-        click: () => {
-          isUserHidden = true;
-          if (win && !win.isDestroyed()) win.hide();
-        },
+        label: 'Desktop Widgets (Canvas Layer)',
+        type: 'checkbox',
+        checked: isDesktopVisible,
+        click: (item) => toggleDesktopWidgets(item.checked),
       },
       { type: 'separator' },
       {
-        label: 'Float Above All Windows',
+        label: 'Float Desktop Widgets Above Apps',
         type: 'checkbox',
         checked: isAlwaysOnTop,
         click: (item) => {
           isAlwaysOnTop = item.checked;
-          if (win && !win.isDestroyed()) {
-            win.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+          if (desktopWin && !desktopWin.isDestroyed()) {
+            desktopWin.setAlwaysOnTop(isAlwaysOnTop, 'floating');
           }
         },
       },
       {
-        label: 'Reload Widgets',
+        label: 'Reload Everything',
         click: () => {
-          if (win && !win.isDestroyed()) win.reload();
+          if (desktopWin && !desktopWin.isDestroyed()) desktopWin.reload();
+          if (islandWin && !islandWin.isDestroyed()) islandWin.reload();
         },
       },
       { type: 'separator' },
@@ -294,45 +340,37 @@ function createTray() {
     tray.setContextMenu(contextMenu);
   };
 
-  updateMenu();
+  updateTrayMenu();
 
   tray.on('click', () => {
-    bringToFront();
-    updateMenu();
+    toggleDesktopWidgets(true);
+    toggleDynamicIsland(true);
   });
 }
 
-// IPC Handlers
-let lastIgnoreMouse = true;
-ipcMain.on('set-interactive', (_event, interactive) => {
-  if (win && !win.isDestroyed()) {
-    const shouldIgnore = !interactive;
-    if (lastIgnoreMouse !== shouldIgnore) {
-      lastIgnoreMouse = shouldIgnore;
-      if (interactive) {
-        win.setIgnoreMouseEvents(false);
-      } else {
-        win.setIgnoreMouseEvents(true, { forward: true });
-      }
-    }
+// Context-aware IPC Handlers: target the window that fired the event
+ipcMain.on('set-interactive', (event, interactive) => {
+  const targetWin = BrowserWindow.fromWebContents(event.sender);
+  if (targetWin && !targetWin.isDestroyed()) {
+    targetWin.setIgnoreMouseEvents(!interactive, { forward: true });
   }
 });
 
 ipcMain.on('toggle-always-on-top', () => {
   isAlwaysOnTop = !isAlwaysOnTop;
-  if (win && !win.isDestroyed()) {
-    win.setAlwaysOnTop(isAlwaysOnTop, 'floating');
+  if (desktopWin && !desktopWin.isDestroyed()) {
+    desktopWin.setAlwaysOnTop(isAlwaysOnTop, 'floating');
   }
+  updateTrayMenu();
 });
 
 ipcMain.on('set-overlay-mode', (_event, mode) => {
-  currentMode = mode;
-  if (win && !win.isDestroyed()) {
-    if (mode === 'hud' || isAlwaysOnTop || isDesktopActive) {
-      win.setAlwaysOnTop(true, 'floating');
-    } else {
-      win.setAlwaysOnTop(false);
-    }
+  _currentMode = mode;
+  if (desktopWin && !desktopWin.isDestroyed()) {
+    desktopWin.webContents.send('mode:change', mode);
+  }
+  if (mode === 'hud') {
+    toggleDynamicIsland(true);
   }
 });
 
@@ -363,24 +401,33 @@ ipcMain.on('system:action', (_event, action) => {
 });
 
 app.on('second-instance', () => {
-  bringToFront();
+  toggleDesktopWidgets(true);
+  toggleDynamicIsland(true);
 });
 
 app.whenReady().then(() => {
-  createWindow();
+  createDesktopWindow();
+  createIslandWindow();
   createTray();
+  startTelemetryBroadcast();
 
   // Screen resolution or display metrics change (docking / monitor unplugging)
   screen.on('display-metrics-changed', () => {
-    if (win && !win.isDestroyed()) {
-      win.setBounds(getWindowBounds());
+    if (desktopWin && !desktopWin.isDestroyed()) {
+      desktopWin.setBounds(getDesktopBounds());
+    }
+    if (islandWin && !islandWin.isDestroyed()) {
+      islandWin.setBounds(getIslandBounds());
     }
   });
 
-  // Global Hotkey: Ctrl+Shift+D to toggle visibility
+  // Global Hotkeys
   try {
     globalShortcut.register('CommandOrControl+Shift+D', () => {
-      toggleVisibility();
+      toggleDesktopWidgets();
+    });
+    globalShortcut.register('CommandOrControl+Shift+I', () => {
+      toggleDynamicIsland();
     });
   } catch (err) {
     console.warn('Hotkey register error', err);

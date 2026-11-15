@@ -65,10 +65,23 @@ const OverlayContent: React.FC = () => {
   );
 };
 
+const isIslandWindow = typeof window !== 'undefined' && window.location.hash.includes('island');
+
+const IslandContent: React.FC = () => {
+  // Click-through: empty margins around the Dynamic Island pass through to browser tabs & OS
+  useClickThrough(false);
+
+  return (
+    <div className="w-full h-screen bg-transparent pointer-events-none select-none flex flex-col items-center p-0 m-0 overflow-hidden">
+      <FloatingHUD isStandaloneWindow={true} />
+    </div>
+  );
+};
+
 export function App() {
   return (
     <TelemetryProvider>
-      <OverlayContent />
+      {isIslandWindow ? <IslandContent /> : <OverlayContent />}
     </TelemetryProvider>
   );
 }

@@ -25,20 +25,22 @@ export const Sparkline: React.FC<SparklineProps> = ({
   const max = Math.max(...data);
   const range = max - min === 0 ? 1 : max - min;
 
-  // ViewBox coordinates
+  // ViewBox coordinates with horizontal margin to prevent dot clipping
   const svgWidth = 200;
   const svgHeight = 60;
   const padding = 6;
+  const paddingX = 5;
   const innerHeight = svgHeight - padding * 2;
+  const innerWidth = svgWidth - paddingX * 2;
 
   const points = data.map((val, idx) => {
-    const x = (idx / (data.length - 1)) * svgWidth;
+    const x = paddingX + (idx / (data.length - 1)) * innerWidth;
     const y = svgHeight - padding - ((val - min) / range) * innerHeight;
     return `${x},${y}`;
   });
 
   const pathD = `M ${points.join(' L ')}`;
-  const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+  const areaD = `${pathD} L ${svgWidth - paddingX},${svgHeight} L ${paddingX},${svgHeight} Z`;
 
   const colorMap = {
     cyan: { stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.25)', glow: 'rgba(6, 182, 212, 0.6)' },

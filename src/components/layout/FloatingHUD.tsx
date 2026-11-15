@@ -17,7 +17,11 @@ import {
 import { useTelemetry } from '../../context/TelemetryContext';
 import { formatDuration } from '../../lib/utils';
 
-export const FloatingHUD: React.FC = () => {
+interface FloatingHUDProps {
+  isStandaloneWindow?: boolean;
+}
+
+export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = false }) => {
   const { snapshot, setMode, controlMedia, setVolume, toggleMute } = useTelemetry();
   const { media } = snapshot;
   const [expanded, setExpanded] = useState(false);
@@ -37,7 +41,13 @@ export const FloatingHUD: React.FC = () => {
       )}
 
       {/* Floating Dynamic Island Pinned Above All Windows */}
-      <div className="fixed top-2.5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center select-none pointer-events-none">
+      <div
+        className={
+          isStandaloneWindow
+            ? 'w-full flex flex-col items-center select-none pointer-events-none pt-1'
+            : 'fixed top-2.5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center select-none pointer-events-none'
+        }
+      >
         <motion.div
           initial={false}
           animate={{

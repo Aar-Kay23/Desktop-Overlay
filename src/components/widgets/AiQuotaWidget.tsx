@@ -108,26 +108,26 @@ export const AiQuotaWidget: React.FC<WidgetProps> = React.memo(({ size }) => {
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5 my-1">
+        <div className="flex flex-col gap-1 my-0.5">
           <div className="flex flex-col gap-0.5">
-            <div className="flex justify-between text-[11px] font-mono">
+            <div className="flex justify-between text-[10px] font-mono">
               <span className="text-slate-400">5h Burst Limit</span>
               <span className="text-white font-semibold">{Math.round(primary.sessionLimit.usedPct)}%</span>
             </div>
-            <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={3.5} />
+            <ProgressBar value={primary.sessionLimit.usedPct} color="cyan" height={3} />
           </div>
 
           <div className="flex flex-col gap-0.5">
-            <div className="flex justify-between text-[11px] font-mono">
+            <div className="flex justify-between text-[10px] font-mono">
               <span className="text-slate-400">Weekly Pool</span>
               <span className="text-slate-300">{Math.round(primary.weeklyLimit.usedPct)}%</span>
             </div>
-            <ProgressBar value={primary.weeklyLimit.usedPct} color="violet" height={3.5} />
+            <ProgressBar value={primary.weeklyLimit.usedPct} color="violet" height={3} />
           </div>
         </div>
 
         {primary.sessionLimit.resetsInHours && (
-          <div className="flex justify-end items-center text-[10px] text-slate-400 font-mono gap-1">
+          <div className="flex justify-end items-center text-[9px] text-slate-400 font-mono gap-1 mt-0.5">
             <Clock className="w-2.5 h-2.5 text-slate-500" />
             <span>Resets in {primary.sessionLimit.resetsInHours}h</span>
           </div>
