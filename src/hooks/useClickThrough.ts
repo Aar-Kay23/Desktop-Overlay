@@ -62,9 +62,13 @@ export function useClickThrough(isModalOpen: boolean = false) {
       }
     };
 
-    const handlePointerDown = () => {
-      isPointerDownRef.current = true;
-      setInteractiveSafe(true);
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isOverInteractive = Boolean(target?.closest?.('[data-interactive="true"]'));
+      if (isOverInteractive) {
+        isPointerDownRef.current = true;
+        setInteractiveSafe(true);
+      }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
@@ -72,6 +76,11 @@ export function useClickThrough(isModalOpen: boolean = false) {
       const el = document.elementFromPoint(e.clientX, e.clientY);
       const isOverInteractive = Boolean(el?.closest('[data-interactive="true"]'));
       setInteractiveSafe(isOverInteractive);
+    };
+
+    const handleWindowBlur = () => {
+      isPointerDownRef.current = false;
+      setInteractiveSafe(false);
     };
 
     const handleMouseMove = (e: MouseEvent) => {
@@ -88,7 +97,9 @@ export function useClickThrough(isModalOpen: boolean = false) {
 
     window.addEventListener('pointerdown', handlePointerDown, { passive: true });
     window.addEventListener('pointerup', handlePointerUp, { passive: true });
+    window.addEventListener('pointercancel', handlePointerUp, { passive: true });
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('blur', handleWindowBlur);
 
     // Initial state: pass-through to desktop
     setInteractiveSafe(false);
@@ -98,7 +109,9 @@ export function useClickThrough(isModalOpen: boolean = false) {
       if (leaveTimer !== null) clearTimeout(leaveTimer);
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
       window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [mode, isModalOpen]);
 }

@@ -55,8 +55,7 @@ function createWindow() {
     hasShadow: false,
     resizable: true,
     focusable: true,
-    minimizable: false,
-    type: 'toolbar', // WS_EX_TOOLWINDOW style on Windows
+    minimizable: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
@@ -254,11 +253,7 @@ function createTray() {
   updateMenu();
 
   tray.on('click', () => {
-    if (!win || win.isDestroyed() || win.isMinimized() || !win.isVisible() || isUserHidden) {
-      bringToFront();
-    } else {
-      toggleVisibility();
-    }
+    bringToFront();
     updateMenu();
   });
 }
