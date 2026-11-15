@@ -89,6 +89,12 @@ async function fetchHighResArtwork(title, artist) {
   return '';
 }
 
+let onDesktopStateCallback = null;
+
+function setDesktopStateListener(callback) {
+  onDesktopStateCallback = callback;
+}
+
 function startMediaDaemon() {
   if (process.platform !== 'win32') return;
   if (psProcess) return;
@@ -98,7 +104,7 @@ function startMediaDaemon() {
   try {
     psProcess = spawn(
       'powershell.exe',
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath],
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', scriptPath, '-ElectronPid', process.pid.toString()],
       {
         stdio: ['pipe', 'pipe', 'pipe'],
         windowsHide: true,
@@ -118,6 +124,14 @@ function startMediaDaemon() {
 
         try {
           const parsed = JSON.parse(trimmed);
+
+          if (parsed.type === 'desktop_state') {
+            if (typeof onDesktopStateCallback === 'function') {
+              onDesktopStateCallback(Boolean(parsed.isDesktop));
+            }
+            continue;
+          }
+
           if (parsed.battery) {
             currentHardware.battery.percent = parsed.battery.percent ?? 100;
             currentHardware.battery.hasBattery = parsed.battery.hasBattery ?? true;
@@ -235,4 +249,5 @@ module.exports = {
   setMasterVolume,
   toggleMasterMute,
   stopMediaDaemon,
+  setDesktopStateListener,
 };

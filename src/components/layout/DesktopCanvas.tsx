@@ -266,7 +266,8 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 8, scale: 0.95 }}
                 transition={{ type: 'spring', stiffness: 450, damping: 30 }}
-                className="absolute right-0 top-11 z-50 w-72 macos-glass macos-squircle p-4 border border-white/15 shadow-2xl flex flex-col gap-3.5 text-white"
+                data-interactive="true"
+                className="absolute right-0 top-11 z-50 w-72 macos-glass macos-squircle p-4 border border-white/15 shadow-2xl flex flex-col gap-3.5 text-white pointer-events-auto"
               >
                 <div className="flex items-center justify-between pb-2 border-b border-white/10">
                   <span className="text-xs font-bold text-white tracking-wide">Glassmorphism Settings</span>

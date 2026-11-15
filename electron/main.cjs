@@ -16,7 +16,7 @@ if (typeof electron === 'string' || process.env.ELECTRON_RUN_AS_NODE) {
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
 const { getSystemTelemetry } = require('./telemetry.cjs');
-const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
+const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon, setDesktopStateListener } = require('./media.cjs');
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
@@ -34,9 +34,38 @@ if (!gotTheLock) {
 
 let win = null;
 let tray = null;
-let isAlwaysOnTop = false; // DESKTOP ONLY: default to false so apps/tabs sit in front
+let isAlwaysOnTop = false; // User manual "Float Above All Windows" preference from tray
 let isUserHidden = false;   // Distinguishes intentional user hides from OS/Win+D minimize
+let isDesktopActive = true; // Tracks whether Windows desktop or shell is the active focus
+let currentMode = 'canvas'; // 'canvas' | 'sidebar' | 'hud' | 'dashboard' | 'minibar'
 let telemetryTimer = null;
+
+function handleDesktopStateChange(desktopActive) {
+  if (isDesktopActive === desktopActive) return;
+  isDesktopActive = desktopActive;
+
+  if (isUserHidden || !win || win.isDestroyed()) return;
+
+  // Manual override or Dynamic Island HUD mode: always stay on top
+  if (isAlwaysOnTop || currentMode === 'hud') {
+    win.setAlwaysOnTop(true, 'floating');
+    return;
+  }
+
+  if (desktopActive) {
+    // Desktop wallpaper / shell / taskbar is active: keep overlay above Progman/WorkerW
+    win.setAlwaysOnTop(true, 'floating');
+    if (win.isMinimized()) win.restore();
+    win.show();
+  } else {
+    // User switched to full foreground app (Chrome, Word, VS Code): drop behind so app has full focus
+    win.setAlwaysOnTop(false);
+  }
+}
+
+setDesktopStateListener((isDesktop) => {
+  handleDesktopStateChange(isDesktop);
+});
 
 function getWindowBounds() {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -60,7 +89,7 @@ function createWindow() {
     height: bounds.height,
     frame: false,
     transparent: true,
-    alwaysOnTop: isAlwaysOnTop,
+    alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
     resizable: true,
@@ -191,16 +220,8 @@ function bringToFront() {
     win.restore();
   }
   win.show();
-  // Force foreground layer activation: briefly elevate to top then restore user's preferred z-order
   win.setAlwaysOnTop(true, 'floating');
   win.focus();
-  if (!isAlwaysOnTop) {
-    setTimeout(() => {
-      if (win && !win.isDestroyed() && !isAlwaysOnTop) {
-        win.setAlwaysOnTop(false);
-      }
-    }, 250);
-  }
 }
 
 function toggleVisibility() {
@@ -305,12 +326,11 @@ ipcMain.on('toggle-always-on-top', () => {
 });
 
 ipcMain.on('set-overlay-mode', (_event, mode) => {
+  currentMode = mode;
   if (win && !win.isDestroyed()) {
-    if (mode === 'hud') {
-      // Dynamic Island pinned above ALL applications and windows
+    if (mode === 'hud' || isAlwaysOnTop || isDesktopActive) {
       win.setAlwaysOnTop(true, 'floating');
-    } else if (!isAlwaysOnTop) {
-      // Desktop widgets return to native desktop layer behind active apps
+    } else {
       win.setAlwaysOnTop(false);
     }
   }

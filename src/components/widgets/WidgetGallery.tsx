@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Check } from 'lucide-react';
 import { WIDGET_CATALOG, WIDGET_ICONS } from '../../lib/widgetRegistry';
 import type { WidgetType, WidgetSize } from '../../types/widgets';
@@ -18,6 +18,15 @@ export const WidgetGallery: React.FC<WidgetGalleryProps> = ({
   const [selectedSize, setSelectedSize] = useState<WidgetSize>('M');
   const [added, setAdded] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const currentDef = WIDGET_CATALOG[selectedType];
@@ -34,8 +43,16 @@ export const WidgetGallery: React.FC<WidgetGalleryProps> = ({
   const categories = ['System', 'AI & Dev', 'Media & Info'] as const;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl macos-glass macos-squircle p-6 shadow-2xl flex flex-col gap-4 border border-white/10">
+    <div
+      data-interactive="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-in fade-in duration-200 pointer-events-auto cursor-default"
+    >
+      <div
+        data-interactive="true"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl macos-glass macos-squircle p-6 shadow-2xl flex flex-col gap-4 border border-white/10 pointer-events-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-white/10">
           <div>

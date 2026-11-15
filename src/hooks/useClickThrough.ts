@@ -62,10 +62,17 @@ export function useClickThrough(isModalOpen: boolean = false) {
       }
     };
 
+    const isInteractiveTarget = (el: Element | null): boolean => {
+      if (!el) return false;
+      const htmlEl = el as HTMLElement;
+      if (htmlEl.closest?.('[data-interactive="true"]')) return true;
+      if (htmlEl.closest?.('button, input, textarea, select, a, [role="button"], [role="dialog"], .macos-glass')) return true;
+      return false;
+    };
+
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null;
-      const isOverInteractive = Boolean(target?.closest?.('[data-interactive="true"]'));
-      if (isOverInteractive) {
+      if (isInteractiveTarget(target)) {
         isPointerDownRef.current = true;
         setInteractiveSafe(true);
       }
@@ -74,8 +81,7 @@ export function useClickThrough(isModalOpen: boolean = false) {
     const handlePointerUp = (e: PointerEvent) => {
       isPointerDownRef.current = false;
       const el = document.elementFromPoint(e.clientX, e.clientY);
-      const isOverInteractive = Boolean(el?.closest('[data-interactive="true"]'));
-      setInteractiveSafe(isOverInteractive);
+      setInteractiveSafe(isInteractiveTarget(el));
     };
 
     const handleWindowBlur = () => {
@@ -90,8 +96,7 @@ export function useClickThrough(isModalOpen: boolean = false) {
       rafId = requestAnimationFrame(() => {
         rafId = null;
         const target = e.target as HTMLElement | null;
-        const isOverInteractive = Boolean(target?.closest?.('[data-interactive="true"]'));
-        setInteractiveSafe(isOverInteractive);
+        setInteractiveSafe(isInteractiveTarget(target));
       });
     };
 

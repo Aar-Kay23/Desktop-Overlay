@@ -1,3 +1,7 @@
+param(
+    [int]$ElectronPid = 0
+)
+
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 
 $audioSrc = '
@@ -151,11 +155,80 @@ public class StdinCommandListener {
         t.Start();
     }
 }
+
+public class ForegroundTracker {
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    public static uint CurrentPid = (uint)System.Diagnostics.Process.GetCurrentProcess().Id;
+    public static uint ParentPid = 0;
+
+    public static bool IsDesktopForeground() {
+        try {
+            IntPtr hwnd = GetForegroundWindow();
+            if (hwnd == IntPtr.Zero) return true;
+
+            uint pid = 0;
+            GetWindowThreadProcessId(hwnd, out pid);
+            if (pid == CurrentPid || (ParentPid != 0 && pid == ParentPid)) return true;
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder(256);
+            GetClassName(hwnd, sb, sb.Capacity);
+            string cls = sb.ToString();
+
+            return cls == "Progman" ||
+                   cls == "WorkerW" ||
+                   cls == "Shell_TrayWnd" ||
+                   cls == "Shell_SecondaryTrayWnd" ||
+                   cls == "#32768" ||
+                   cls == "Windows.UI.Core.CoreWindow" ||
+                   cls == "XamlExplorerHostIslandWindow";
+        } catch {
+            return true;
+        }
+    }
+}
+
+public class ForegroundWatcher {
+    public static void Start() {
+        Thread t = new Thread(new ThreadStart(delegate() {
+            bool lastState = true;
+            while (true) {
+                try {
+                    bool curState = ForegroundTracker.IsDesktopForeground();
+                    if (curState != lastState) {
+                        lastState = curState;
+                        Console.WriteLine("{\"type\":\"desktop_state\",\"isDesktop\":" + (curState ? "true" : "false") + "}");
+                    }
+                } catch {}
+                Thread.Sleep(100);
+            }
+        }));
+        t.IsBackground = true;
+        t.Start();
+    }
+}
 '
 
 Add-Type -TypeDefinition $audioSrc
 
+if ($ElectronPid -gt 0) {
+    [ForegroundTracker]::ParentPid = [uint32]$ElectronPid
+} else {
+    try {
+        $parent = (Get-CimInstance Win32_Process -Filter "ProcessId = $PID").ParentProcessId
+        if ($parent) { [ForegroundTracker]::ParentPid = [uint32]$parent }
+    } catch {}
+}
+
 [StdinCommandListener]::Start()
+[ForegroundWatcher]::Start()
 
 $asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | ? { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' })[0]
 Function Await($WinRtTask, $ResultType) {
