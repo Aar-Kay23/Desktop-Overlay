@@ -35,7 +35,7 @@ describe('TelemetryContext & State Flow', () => {
       </TelemetryProvider>
     );
 
-    expect(screen.getByTestId('mode-val').textContent).toBe('sidebar');
+    expect(screen.getByTestId('mode-val').textContent).toBe('canvas');
     expect(screen.getByTestId('pinned-val').textContent).toBe('unpinned');
     expect(Number(screen.getByTestId('approvals-count').textContent)).toBeGreaterThanOrEqual(1);
 

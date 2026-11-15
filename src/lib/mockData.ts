@@ -53,6 +53,14 @@ export function generateInitialSnapshot(): SystemSnapshot {
       historyDown: createInitialHistory(45, 30),
       historyUp: createInitialHistory(12, 8),
     },
+    battery: {
+      hasBattery: true,
+      percent: 96,
+      isCharging: true,
+      acConnected: true,
+      model: 'DELL PX0GF28',
+      voltage: 16.37,
+    },
     quotas: [
       {
         provider: 'antigravity',

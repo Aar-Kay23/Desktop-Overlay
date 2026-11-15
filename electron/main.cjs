@@ -1,27 +1,26 @@
-const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, nativeImage } = require('electron');
+const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const { getSystemTelemetry } = require('./telemetry.cjs');
 
 let win = null;
 let tray = null;
-let dockSide = 'right'; // 'right' | 'left'
-let isAlwaysOnTop = true;
-const DOCK_WIDTH = 390;
+let isAlwaysOnTop = false; // DESKTOP ONLY: default to false so apps/tabs sit in front
+let telemetryTimer = null;
 
-function getDockBounds() {
+function getWindowBounds() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x, y, width, height } = primaryDisplay.workArea;
 
-  const windowX = dockSide === 'right' ? x + width - DOCK_WIDTH : x;
   return {
-    x: windowX,
+    x: x,
     y: y,
-    width: DOCK_WIDTH,
+    width: width,
     height: height,
   };
 }
 
 function createWindow() {
-  const bounds = getDockBounds();
+  const bounds = getWindowBounds();
 
   win = new BrowserWindow({
     x: bounds.x,
@@ -33,17 +32,18 @@ function createWindow() {
     alwaysOnTop: isAlwaysOnTop,
     skipTaskbar: true,
     hasShadow: false,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
+    resizable: true,
+    focusable: true,
+    type: 'toolbar', // Desktop widget classification
     webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
       backgroundThrottling: false,
     },
   });
 
-  // Load from local dist/index.html or dev server if available
+  // Load production dist or local dev server
   const devUrl = 'http://localhost:5173';
   const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
 
@@ -55,21 +55,43 @@ function createWindow() {
       win.loadFile(prodPath);
     });
 
-  win.on('closed', () => {
-    win = null;
+  // Win+D / Show Desktop protection: prevent minimizing
+  win.on('minimize', (e) => {
+    e.preventDefault();
+    win.restore();
+    if (!isAlwaysOnTop) win.moveBottom();
   });
 
-  // Re-anchor when display metrics change
-  screen.on('display-metrics-changed', () => {
-    if (win) {
-      const b = getDockBounds();
-      win.setBounds(b);
+  win.on('blur', () => {
+    // Keep at desktop layer when user is working in other apps
+    if (!isAlwaysOnTop && win) {
+      win.moveBottom();
     }
   });
+
+  win.on('closed', () => {
+    win = null;
+    if (telemetryTimer) clearInterval(telemetryTimer);
+  });
+
+  // Start real hardware telemetry polling loop
+  startTelemetryBroadcast();
+}
+
+function startTelemetryBroadcast() {
+  if (telemetryTimer) clearInterval(telemetryTimer);
+
+  telemetryTimer = setInterval(async () => {
+    if (win && !win.isDestroyed()) {
+      const data = await getSystemTelemetry();
+      if (data) {
+        win.webContents.send('telemetry:update', data);
+      }
+    }
+  }, 1500);
 }
 
 function createTray() {
-  // Simple fallback icon or SVG
   const iconPath = path.join(__dirname, '..', 'public', 'favicon.svg');
   let icon;
   try {
@@ -79,46 +101,36 @@ function createTray() {
   }
 
   tray = new Tray(icon.isEmpty() ? nativeImage.createFromBuffer(Buffer.alloc(0)) : icon);
-  tray.setToolTip('Desktop-Overlay Dock');
+  tray.setToolTip('Desktop Widgets');
 
   const updateMenu = () => {
     const contextMenu = Menu.buildFromTemplate([
       {
-        label: win && win.isVisible() ? 'Hide Desktop Dock' : 'Show Desktop Dock',
-        click: () => toggleDock(),
+        label: win && win.isVisible() ? 'Hide Desktop Widgets' : 'Show Desktop Widgets',
+        click: () => toggleVisibility(),
       },
       { type: 'separator' },
       {
-        label: 'Dock on Right Edge',
-        type: 'radio',
-        checked: dockSide === 'right',
-        click: () => setDockPosition('right'),
-      },
-      {
-        label: 'Dock on Left Edge',
-        type: 'radio',
-        checked: dockSide === 'left',
-        click: () => setDockPosition('left'),
-      },
-      { type: 'separator' },
-      {
-        label: 'Stay on Top of Windows',
+        label: 'Float Above All Windows',
         type: 'checkbox',
         checked: isAlwaysOnTop,
         click: (item) => {
           isAlwaysOnTop = item.checked;
-          if (win) win.setAlwaysOnTop(isAlwaysOnTop);
+          if (win) {
+            win.setAlwaysOnTop(isAlwaysOnTop);
+            if (!isAlwaysOnTop) win.moveBottom();
+          }
         },
       },
-      { type: 'separator' },
       {
-        label: 'Reload Dock',
+        label: 'Reload Widgets',
         click: () => {
           if (win) win.reload();
         },
       },
+      { type: 'separator' },
       {
-        label: 'Quit Desktop Overlay',
+        label: 'Quit',
         click: () => {
           app.quit();
         },
@@ -130,12 +142,12 @@ function createTray() {
   updateMenu();
 
   tray.on('click', () => {
-    toggleDock();
+    toggleVisibility();
     updateMenu();
   });
 }
 
-function toggleDock() {
+function toggleVisibility() {
   if (!win) {
     createWindow();
     return;
@@ -143,47 +155,45 @@ function toggleDock() {
   if (win.isVisible()) {
     win.hide();
   } else {
-    const b = getDockBounds();
-    win.setBounds(b);
     win.show();
-    if (isAlwaysOnTop) win.setAlwaysOnTop(true);
+    if (!isAlwaysOnTop) win.moveBottom();
   }
 }
 
-function setDockPosition(side) {
-  dockSide = side;
+// IPC Handlers
+ipcMain.on('set-interactive', (_event, interactive) => {
   if (win) {
-    const b = getDockBounds();
-    win.setBounds(b);
+    win.setIgnoreMouseEvents(!interactive, { forward: true });
   }
-}
+});
+
+ipcMain.on('toggle-always-on-top', () => {
+  isAlwaysOnTop = !isAlwaysOnTop;
+  if (win) {
+    win.setAlwaysOnTop(isAlwaysOnTop);
+    if (!isAlwaysOnTop) win.moveBottom();
+  }
+});
 
 app.whenReady().then(() => {
   createWindow();
   createTray();
 
-  // Register global hotkey: Ctrl+Shift+D to toggle dock
+  // Global Hotkey: Ctrl+Shift+D to toggle visibility
   try {
     globalShortcut.register('CommandOrControl+Shift+D', () => {
-      toggleDock();
+      toggleVisibility();
     });
   } catch (err) {
-    console.warn('Failed to register global hotkey', err);
+    console.warn('Hotkey register error', err);
   }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (telemetryTimer) clearInterval(telemetryTimer);
 });
 
 app.on('window-all-closed', (e) => {
-  // Keep app alive in tray
   e.preventDefault();
 });
-

@@ -24,10 +24,11 @@ export const HeaderBar: React.FC<{ onOpenSettings?: () => void }> = ({ onOpenSet
   }, []);
 
   const modes: { id: OverlayMode; label: string; icon: React.ReactNode }[] = [
+    { id: 'canvas', label: 'Desktop Widgets', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
     { id: 'sidebar', label: 'Sidebar Dock', icon: <SidebarIcon className="w-3.5 h-3.5" /> },
     { id: 'hud', label: 'Dynamic HUD', icon: <Maximize2 className="w-3.5 h-3.5" /> },
-    { id: 'dashboard', label: 'Full Grid', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-    { id: 'minibar', label: 'Mini Bar', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'dashboard', label: 'Full Grid', icon: <Layers className="w-3.5 h-3.5" /> },
+    { id: 'minibar', label: 'Mini Bar', icon: <Radio className="w-3.5 h-3.5" /> },
   ];
 
   return (

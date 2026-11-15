@@ -97,6 +97,15 @@ export interface ProcessItem {
   instances: number;
 }
 
+export interface BatteryMetric {
+  hasBattery: boolean;
+  percent: number;
+  isCharging: boolean;
+  acConnected: boolean;
+  model?: string;
+  voltage?: number;
+}
+
 export interface SystemSnapshot {
   timestamp: number;
   hostname: string;
@@ -106,12 +115,13 @@ export interface SystemSnapshot {
   memory: MemoryMetric;
   disks: DiskMetric[];
   network: NetworkMetric;
+  battery?: BatteryMetric;
   quotas: AiProviderQuotas[];
   pendingApprovals: ClaudeApprovalRequest[];
   media: MediaState;
   topProcesses: ProcessItem[];
 }
 
-export type OverlayMode = 'sidebar' | 'hud' | 'dashboard' | 'minibar';
+export type OverlayMode = 'canvas' | 'sidebar' | 'hud' | 'dashboard' | 'minibar';
 export type ConnectionSource = 'live-agent' | 'simulation';
 

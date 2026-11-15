@@ -24,7 +24,7 @@ const TelemetryContext = createContext<TelemetryContextValue | null>(null);
 
 export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [snapshot, setSnapshot] = useState<SystemSnapshot>(() => generateInitialSnapshot());
-  const [mode, setMode] = useState<OverlayMode>('sidebar');
+  const [mode, setMode] = useState<OverlayMode>('canvas');
   const [source, setSource] = useState<ConnectionSource>('simulation');
   const [agentUrl, setAgentUrlState] = useState<string>(() => {
     try {
@@ -43,6 +43,26 @@ export const TelemetryProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       localStorage.setItem('desktop_overlay_agent_url', url);
     } catch {}
+  }, []);
+
+  // Listen to Electron's real system telemetry when running inside the desktop app
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.onTelemetry) {
+      const unsub = (window as any).electronAPI.onTelemetry((realData: any) => {
+        setSnapshot((prev) => ({
+          ...prev,
+          ...realData,
+          cpu: { ...prev.cpu, ...realData.cpu },
+          gpu: { ...prev.gpu, ...realData.gpu },
+          memory: { ...prev.memory, ...realData.memory },
+          disks: realData.disks && realData.disks.length > 0 ? realData.disks : prev.disks,
+          network: { ...prev.network, ...realData.network },
+          battery: realData.battery || prev.battery,
+          topProcesses: realData.topProcesses && realData.topProcesses.length > 0 ? realData.topProcesses : prev.topProcesses,
+        }));
+      });
+      return () => unsub();
+    }
   }, []);
 
   // Handle agent streaming ONLY when in live-agent mode

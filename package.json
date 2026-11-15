@@ -21,6 +21,7 @@
     "lucide-react": "^1.73.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "systeminformation": "^5.33.23",
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
