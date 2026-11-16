@@ -73,9 +73,6 @@ function findShellWindowViaEnum() {
       const buf = Buffer.alloc(256);
       GetClassNameA(hwnd, buf, 256);
       const cls = buf.toString('ascii').replace(/\0.*$/, '');
-      if (count <= 10) {
-        log(`[EnumSample] HWND: ${hwnd}, Class: ${cls}`);
-      }
       if (cls === 'Progman' || cls === 'WorkerW') {
         const hDefView = FindWindowExA(hwnd, 0n, 'SHELLDLL_DefView', null);
         if (hDefView && hDefView !== 0n && hDefView !== 0) {
@@ -96,7 +93,6 @@ function findShellWindowViaEnum() {
 
   try {
     EnumWindows(cb, 0n);
-    log(`[ShellEnum] Enumerated total: ${count} windows, found: ${found}`);
   } catch (err) {
     log('EnumWindows err:', err);
   } finally {
@@ -149,6 +145,7 @@ let isDesktopVisible = true;
 let isIslandVisible = false;
 let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
 let isOwnerSet = false;
+let lastOwnerRetry = 0;
 let _currentMode = 'canvas';
 let telemetryTimer = null;
 let focusMonitorTimer = null;
@@ -268,7 +265,10 @@ function createDesktopWindow() {
   // Enable click-through by default so desktop icons, taskbar, and background apps remain fully usable
   desktopWin.setIgnoreMouseEvents(true, { forward: true });
 
-  desktopWin.webContents.on('console-message', (_e, _lvl, msg) => log('[DesktopRenderer]', msg));
+  desktopWin.webContents.on('console-message', (event, ...rest) => {
+    const msg = event?.message || rest[1] || rest[0] || '';
+    if (msg) log('[DesktopRenderer]', msg);
+  });
 
   loadWindow(desktopWin, 'desktop');
 
@@ -335,7 +335,10 @@ function createIslandWindow() {
   islandWin.setAlwaysOnTop(true, 'screen-saver');
   islandWin.setIgnoreMouseEvents(true, { forward: true });
 
-  islandWin.webContents.on('console-message', (_e, _lvl, msg) => log('[IslandRenderer]', msg));
+  islandWin.webContents.on('console-message', (event, ...rest) => {
+    const msg = event?.message || rest[1] || rest[0] || '';
+    if (msg) log('[IslandRenderer]', msg);
+  });
 
   islandWin.on('blur', () => {
     if (islandWin && !islandWin.isDestroyed()) {
@@ -365,10 +368,6 @@ function checkActiveFocus() {
     return;
   }
 
-  if (!isOwnerSet) {
-    setupDesktopZOrder();
-  }
-
   // Fast check: If Win+D minimized the window, restore immediately
   if (desktopWin.isMinimized()) {
     desktopWin.restore();
@@ -384,6 +383,14 @@ function checkActiveFocus() {
 
   if (isDesktop) {
     // User is on desktop wallpaper, desktop icons, or taskbar.
+    // Latch shell owner if not yet bound (throttled to at most once every 2s)
+    if (!isOwnerSet) {
+      const now = Date.now();
+      if (now - lastOwnerRetry > 2000) {
+        lastOwnerRetry = now;
+        setupDesktopZOrder();
+      }
+    }
     // Ensure desktopWin is visible and placed right above wallpaper without taking focus.
     if (!desktopWin.isVisible()) {
       desktopWin.showInactive();
