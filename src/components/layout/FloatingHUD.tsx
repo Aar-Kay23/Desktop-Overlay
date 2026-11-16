@@ -27,6 +27,12 @@ export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = f
   const [expanded, setExpanded] = useState(false);
   const [showPillMenu, setShowPillMenu] = useState(false);
 
+  React.useEffect(() => {
+    if (isStandaloneWindow && window.electronAPI?.islandResize) {
+      window.electronAPI.islandResize(expanded);
+    }
+  }, [expanded, isStandaloneWindow]);
+
   const progressPct = media.durationSec > 0 ? (media.positionSec / media.durationSec) * 100 : 0;
 
   return (

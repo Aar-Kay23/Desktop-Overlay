@@ -202,6 +202,18 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
 
   return (
     <div className="min-h-screen relative w-full h-full overflow-hidden select-none selection:bg-white/20 pointer-events-none">
+      {/* Click-outside backdrop for Popovers */}
+      {(showGlassModal || showScaleModal) && (
+        <div
+          data-interactive="true"
+          onClick={() => {
+            setShowGlassModal(false);
+            setShowScaleModal(false);
+          }}
+          className="fixed inset-0 z-30 bg-transparent pointer-events-auto"
+        />
+      )}
+
       {/* Sleek Floating Capsule Toolbar (Top-Right Corner - leaves wallpaper & icons completely clean) */}
       <div
         data-interactive="true"
@@ -236,7 +248,7 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
           className="flex items-center gap-1 px-2 py-1 rounded-full hover:bg-white/15 text-slate-300 hover:text-white text-xs font-medium border border-transparent hover:border-white/10 transition-colors cursor-pointer"
         >
           <Columns className="w-3 h-3" />
-          <span className="hidden sm:inline">Right Shelf</span>
+          <span className="hidden md:inline">Shelf</span>
         </button>
 
         {/* Perimeter Grid Layout */}
@@ -261,146 +273,38 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
           <Magnet className="w-3.5 h-3.5" />
         </button>
 
-        {/* Scale / Zoom Control Popover */}
-        <div className="relative">
-          <button
-            onClick={() => setShowScaleModal(!showScaleModal)}
-            title="Display Scaling (Laptop / Large Display zoom presets)"
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-              showScaleModal
-                ? 'bg-white text-slate-950 font-bold'
-                : 'hover:bg-white/15 text-slate-300 hover:text-white'
-            }`}
-          >
-            <ZoomIn className="w-3 h-3" />
-            <span>{Math.round(widgetScale * 100)}%</span>
-          </button>
-
-          <AnimatePresence>
-            {showScaleModal && (
-              <motion.div
-                initial={{ opacity: 0, y: 6, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                className="absolute right-0 top-9 z-50 w-44 macos-glass macos-squircle p-2 border border-white/15 shadow-2xl flex flex-col gap-1 text-white pointer-events-auto"
-              >
-                <div className="text-[10px] font-semibold text-slate-400 px-2 py-1 uppercase tracking-wider">
-                  Display Scale
-                </div>
-                {(['auto', '75%', '85%', '100%', '115%'] as ScalePreset[]).map((preset) => (
-                  <button
-                    key={preset}
-                    onClick={() => {
-                      setScalePreset(preset);
-                      setShowScaleModal(false);
-                    }}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
-                      scalePreset === preset
-                        ? 'bg-white/20 text-white font-bold'
-                        : 'text-slate-300 hover:bg-white/10 hover:text-white'
-                    }`}
-                  >
-                    <span className="capitalize">{preset === 'auto' ? 'Auto (Recommended)' : preset}</span>
-                    {scalePreset === preset && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Scale / Zoom Control */}
+        <button
+          onClick={() => {
+            setShowScaleModal((prev) => !prev);
+            setShowGlassModal(false);
+          }}
+          title="Display Scaling (Laptop / Large Display zoom presets)"
+          className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+            showScaleModal
+              ? 'bg-white text-slate-950 font-bold'
+              : 'hover:bg-white/15 text-slate-300 hover:text-white'
+          }`}
+        >
+          <ZoomIn className="w-3 h-3" />
+          <span>{Math.round(widgetScale * 100)}%</span>
+        </button>
 
         {/* Glass Customization Button */}
-        <div className="relative">
-          <button
-            onClick={() => setShowGlassModal(!showGlassModal)}
-            title="Glassmorphism Opacity & Blur"
-            className={`p-1.5 rounded-full transition-colors cursor-pointer ${
-              showGlassModal
-                ? 'bg-white text-slate-950 font-bold'
-                : 'hover:bg-white/15 text-slate-300 hover:text-white'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-          </button>
-
-          <AnimatePresence>
-            {showGlassModal && (
-              <motion.div
-                initial={{ opacity: 0, y: 6, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 6, scale: 0.95 }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                className="absolute right-0 top-9 z-50 w-72 macos-glass macos-squircle p-4 border border-white/15 shadow-2xl flex flex-col gap-3.5 text-white pointer-events-auto"
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                  <span className="text-xs font-bold text-white tracking-wide">Glassmorphism Settings</span>
-                  <button onClick={() => setShowGlassModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Opacity Slider */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] text-slate-300">
-                    <span>Background Opacity</span>
-                    <span className="font-mono text-cyan-400">{Math.round(glassSettings.opacity * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.20"
-                    max="0.95"
-                    step="0.05"
-                    value={glassSettings.opacity}
-                    onChange={(e) => setGlassSettings({ opacity: parseFloat(e.target.value) })}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                </div>
-
-                {/* Blur Slider */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] text-slate-300">
-                    <span>Backdrop Blur</span>
-                    <span className="font-mono text-cyan-400">{glassSettings.blur}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="8"
-                    max="45"
-                    step="1"
-                    value={glassSettings.blur}
-                    onChange={(e) => setGlassSettings({ blur: parseInt(e.target.value, 10) })}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                </div>
-
-                {/* Border Opacity Slider */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[11px] text-slate-300">
-                    <span>Border Frosting</span>
-                    <span className="font-mono text-cyan-400">{Math.round(glassSettings.borderOpacity * 100)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.04"
-                    max="0.30"
-                    step="0.02"
-                    value={glassSettings.borderOpacity}
-                    onChange={(e) => setGlassSettings({ borderOpacity: parseFloat(e.target.value) })}
-                    className="w-full accent-cyan-400 cursor-pointer"
-                  />
-                </div>
-
-                <button
-                  onClick={() => setGlassSettings({ opacity: 0.65, blur: 28, borderOpacity: 0.09 })}
-                  className="mt-1 w-full py-1 text-[11px] rounded bg-white/10 hover:bg-white/20 text-slate-300 transition-colors cursor-pointer text-center"
-                >
-                  Reset Glass to Default
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        <button
+          onClick={() => {
+            setShowGlassModal((prev) => !prev);
+            setShowScaleModal(false);
+          }}
+          title="Glassmorphism Appearance & Sliders"
+          className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+            showGlassModal
+              ? 'bg-white text-slate-950 font-bold'
+              : 'hover:bg-white/15 text-slate-300 hover:text-white'
+          }`}
+        >
+          <Sliders className="w-3.5 h-3.5" />
+        </button>
 
         {/* Edit Mode Toggle */}
         <button
@@ -453,6 +357,120 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             <Settings className="w-3.5 h-3.5" />
           </button>
         )}
+
+        {/* Scale Popover (Anchored cleanly to Toolbar Right Edge) */}
+        <AnimatePresence>
+          {showScaleModal && (
+            <motion.div
+              data-interactive="true"
+              initial={{ opacity: 0, y: 6, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="absolute right-0 top-11 z-50 w-44 macos-glass macos-squircle p-2 border border-white/15 shadow-2xl flex flex-col gap-1 text-white pointer-events-auto"
+            >
+              <div className="text-[10px] font-semibold text-slate-400 px-2 py-1 uppercase tracking-wider">
+                Display Scale
+              </div>
+              {(['auto', '75%', '85%', '100%', '115%'] as ScalePreset[]).map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => {
+                    setScalePreset(preset);
+                    setShowScaleModal(false);
+                  }}
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs transition-colors cursor-pointer ${
+                    scalePreset === preset
+                      ? 'bg-white/20 text-white font-bold'
+                      : 'text-slate-300 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <span className="capitalize">{preset === 'auto' ? 'Auto (Recommended)' : preset}</span>
+                  {scalePreset === preset && <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Glass Customization Popover (Anchored cleanly to Toolbar Right Edge - never extends under Island) */}
+        <AnimatePresence>
+          {showGlassModal && (
+            <motion.div
+              data-interactive="true"
+              initial={{ opacity: 0, y: 6, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+              className="absolute right-0 top-11 z-50 w-72 macos-glass macos-squircle p-4 border border-white/15 shadow-2xl flex flex-col gap-3.5 text-white pointer-events-auto"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <span className="text-xs font-bold text-white tracking-wide">Glassmorphism Settings</span>
+                <button onClick={() => setShowGlassModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Opacity Slider */}
+              <div data-interactive="true" className="flex flex-col gap-1">
+                <div className="flex justify-between text-[11px] text-slate-300">
+                  <span>Background Opacity</span>
+                  <span className="font-mono text-cyan-400">{Math.round(glassSettings.opacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.20"
+                  max="0.95"
+                  step="0.05"
+                  value={glassSettings.opacity}
+                  onChange={(e) => setGlassSettings({ opacity: parseFloat(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+              </div>
+
+              {/* Blur Slider */}
+              <div data-interactive="true" className="flex flex-col gap-1">
+                <div className="flex justify-between text-[11px] text-slate-300">
+                  <span>Backdrop Blur</span>
+                  <span className="font-mono text-cyan-400">{glassSettings.blur}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="8"
+                  max="45"
+                  step="1"
+                  value={glassSettings.blur}
+                  onChange={(e) => setGlassSettings({ blur: parseInt(e.target.value, 10) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+              </div>
+
+              {/* Border Opacity Slider */}
+              <div data-interactive="true" className="flex flex-col gap-1">
+                <div className="flex justify-between text-[11px] text-slate-300">
+                  <span>Border Frosting</span>
+                  <span className="font-mono text-cyan-400">{Math.round(glassSettings.borderOpacity * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.04"
+                  max="0.30"
+                  step="0.02"
+                  value={glassSettings.borderOpacity}
+                  onChange={(e) => setGlassSettings({ borderOpacity: parseFloat(e.target.value) })}
+                  className="w-full accent-cyan-400 cursor-pointer"
+                />
+              </div>
+
+              <button
+                onClick={() => setGlassSettings({ opacity: 0.65, blur: 28, borderOpacity: 0.09 })}
+                className="mt-1 w-full py-1 text-[11px] rounded bg-white/10 hover:bg-white/20 text-slate-300 transition-colors cursor-pointer text-center"
+              >
+                Reset Glass to Default
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Widget Canvas Layer */}

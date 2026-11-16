@@ -33,4 +33,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   systemAction: (action) => {
     ipcRenderer.send('system:action', action);
   },
+  islandResize: (expanded) => {
+    ipcRenderer.send('island:resize', expanded);
+  },
 });

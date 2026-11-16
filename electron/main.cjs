@@ -158,11 +158,11 @@ function getDesktopBounds() {
   return { x, y, width, height };
 }
 
-function getIslandBounds() {
+function getIslandBounds(expanded = false) {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { workArea } = primaryDisplay;
-  const width = 440;
-  const height = 260;
+  const width = expanded ? 380 : 220;
+  const height = expanded ? 260 : 42;
   const x = Math.round(workArea.x + (workArea.width - width) / 2);
   const y = workArea.y + 4;
   return { x, y, width, height };
@@ -571,6 +571,13 @@ ipcMain.on('system:action', (_event, action) => {
     exec('start taskmgr.exe');
   } else if (action === 'sleep') {
     exec('rundll32.exe powrprof.dll,SetSuspendState 0,1,0');
+  }
+});
+
+ipcMain.on('island:resize', (_event, expanded) => {
+  if (islandWin && !islandWin.isDestroyed()) {
+    const bounds = getIslandBounds(expanded);
+    islandWin.setBounds(bounds);
   }
 });
 

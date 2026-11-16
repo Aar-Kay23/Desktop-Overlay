@@ -9,6 +9,7 @@ export interface ElectronAPI {
   setVolume?: (vol: number) => void;
   toggleMute?: () => void;
   systemAction?: (action: 'mute' | 'lock' | 'taskmgr' | 'sleep') => void;
+  islandResize?: (expanded: boolean) => void;
 }
 
 declare global {
