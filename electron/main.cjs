@@ -146,7 +146,7 @@ let desktopWin = null;
 let islandWin = null;
 let tray = null;
 let isDesktopVisible = true;
-let isIslandVisible = true;
+let isIslandVisible = false;
 let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
 let _currentMode = 'canvas';
 let telemetryTimer = null;
@@ -266,6 +266,8 @@ function createDesktopWindow() {
   // Enable click-through by default so desktop icons, taskbar, and background apps remain fully usable
   desktopWin.setIgnoreMouseEvents(true, { forward: true });
 
+  desktopWin.webContents.on('console-message', (_e, _lvl, msg) => log('[DesktopRenderer]', msg));
+
   loadWindow(desktopWin, 'desktop');
 
   desktopWin.once('ready-to-show', () => {
@@ -330,6 +332,14 @@ function createIslandWindow() {
 
   islandWin.setAlwaysOnTop(true, 'screen-saver');
   islandWin.setIgnoreMouseEvents(true, { forward: true });
+
+  islandWin.webContents.on('console-message', (_e, _lvl, msg) => log('[IslandRenderer]', msg));
+
+  islandWin.on('blur', () => {
+    if (islandWin && !islandWin.isDestroyed()) {
+      islandWin.webContents.send('island:collapse');
+    }
+  });
 
   loadWindow(islandWin, 'island');
 
@@ -541,6 +551,7 @@ ipcMain.on('set-overlay-mode', (_event, mode) => {
     if (desktopWin && !desktopWin.isDestroyed()) desktopWin.hide();
     toggleDynamicIsland(true);
   } else {
+    toggleDynamicIsland(false);
     toggleDesktopWidgets(true);
     if (desktopWin && !desktopWin.isDestroyed()) {
       desktopWin.webContents.send('mode:change', mode);
@@ -578,6 +589,9 @@ ipcMain.on('island:resize', (_event, expanded) => {
   if (islandWin && !islandWin.isDestroyed()) {
     const bounds = getIslandBounds(expanded);
     islandWin.setBounds(bounds);
+    if (expanded) {
+      islandWin.focus();
+    }
   }
 });
 

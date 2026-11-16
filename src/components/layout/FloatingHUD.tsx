@@ -33,6 +33,22 @@ export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = f
     }
   }, [expanded, isStandaloneWindow]);
 
+  // Auto-collapse when user clicks outside the Dynamic Island or switches apps
+  React.useEffect(() => {
+    const handleCollapse = () => {
+      setExpanded(false);
+      setShowPillMenu(false);
+    };
+
+    window.addEventListener('blur', handleCollapse);
+    const unsub = window.electronAPI?.onIslandCollapse?.(handleCollapse);
+
+    return () => {
+      window.removeEventListener('blur', handleCollapse);
+      unsub?.();
+    };
+  }, []);
+
   const progressPct = media.durationSec > 0 ? (media.positionSec / media.durationSec) * 100 : 0;
 
   return (
@@ -41,7 +57,10 @@ export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = f
       {expanded && (
         <div
           data-interactive="true"
-          onClick={() => setExpanded(false)}
+          onClick={() => {
+            setExpanded(false);
+            setShowPillMenu(false);
+          }}
           className={
             isStandaloneWindow
               ? 'fixed inset-0 z-40 bg-transparent pointer-events-auto'
@@ -73,7 +92,10 @@ export const FloatingHUD: React.FC<FloatingHUDProps> = ({ isStandaloneWindow = f
           }}
           data-interactive="true"
           onClick={() => {
-            if (!expanded) setExpanded(true);
+            if (!expanded) {
+              setExpanded(true);
+              if (typeof window !== 'undefined') window.focus();
+            }
           }}
           onContextMenu={(e) => {
             e.preventDefault();

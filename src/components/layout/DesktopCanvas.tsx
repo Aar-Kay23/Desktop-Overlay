@@ -2,14 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
-  SlidersHorizontal,
+  Pencil,
   RotateCcw,
   Sparkles,
   Settings,
   Sidebar,
   Magnet,
   LayoutGrid,
-  Sliders,
   X,
   Maximize2,
   Columns,
@@ -296,27 +295,29 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
             setShowGlassModal((prev) => !prev);
             setShowScaleModal(false);
           }}
-          title="Glassmorphism Appearance & Sliders"
-          className={`p-1.5 rounded-full transition-colors cursor-pointer ${
+          title="Customize Glassmorphism (Opacity, Blur, Frosting Sliders)"
+          className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
             showGlassModal
               ? 'bg-white text-slate-950 font-bold'
               : 'hover:bg-white/15 text-slate-300 hover:text-white'
           }`}
         >
-          <Sliders className="w-3.5 h-3.5" />
+          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+          <span>Glass</span>
         </button>
 
-        {/* Edit Mode Toggle */}
+        {/* Layout Edit Mode Toggle */}
         <button
           onClick={() => setEditMode(!editMode)}
+          title={editMode ? 'Done arranging widgets' : 'Arrange / drag widgets layout'}
           className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
             editMode
-              ? 'bg-white text-slate-950 font-bold shadow-md'
-              : 'hover:bg-white/15 text-slate-300'
+              ? 'bg-cyan-400 text-slate-950 font-bold shadow-md'
+              : 'hover:bg-white/15 text-slate-300 hover:text-white'
           }`}
         >
-          <SlidersHorizontal className="w-3 h-3" />
-          <span>{editMode ? 'Done' : 'Edit'}</span>
+          <Pencil className="w-3 h-3" />
+          <span>{editMode ? 'Done' : 'Arrange'}</span>
         </button>
 
         {editMode && (

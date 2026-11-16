@@ -36,4 +36,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   islandResize: (expanded) => {
     ipcRenderer.send('island:resize', expanded);
   },
+  onIslandCollapse: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('island:collapse', handler);
+    return () => ipcRenderer.removeListener('island:collapse', handler);
+  },
 });
