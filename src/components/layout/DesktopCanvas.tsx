@@ -76,6 +76,16 @@ export const DesktopCanvas: React.FC<{ onOpenSettings?: () => void }> = ({ onOpe
   const [editMode, setEditMode] = useState<boolean>(false);
   const [galleryOpen, setGalleryOpen] = useState<boolean>(false);
 
+  // When any modal or gallery is open, ensure mouse events are active so clicks aren't lost to desktop
+  useEffect(() => {
+    const isAnyModalOpen = galleryOpen || showGlassModal || showScaleModal;
+    if (window.electronAPI?.setInteractive) {
+      if (isAnyModalOpen) {
+        window.electronAPI.setInteractive(true);
+      }
+    }
+  }, [galleryOpen, showGlassModal, showScaleModal]);
+
   // Persist to localStorage
   useEffect(() => {
     try {

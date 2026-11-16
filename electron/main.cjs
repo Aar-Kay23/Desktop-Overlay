@@ -18,8 +18,17 @@ delete process.env.electron_run_as_node;
 
 const { app, BrowserWindow, screen, Tray, Menu, globalShortcut, ipcMain, nativeImage } = electron;
 const path = require('path');
+const fs = require('fs');
 
-// Single-instance lock: prevents zombie duplicate instances from multiple launcher clicks
+// Diagnostic logger
+const logFile = path.join(__dirname, '..', 'electron.log');
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ` + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') + '\n';
+  try { fs.appendFileSync(logFile, line); } catch {}
+  console.log(...args);
+}
+
+// Single-instance lock: prevents duplicate instances
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
@@ -31,165 +40,82 @@ const { getSystemTelemetry } = require('./telemetry.cjs');
 const { sendMediaControl, setMasterVolume, toggleMasterMute, stopMediaDaemon } = require('./media.cjs');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Win32 API Bindings (koffi — zero build step, 0ms latency)
+// Win32 API Bindings via Koffi (0ms latency, zero build step)
 // ─────────────────────────────────────────────────────────────────────────────
 const user32 = koffi.load('user32.dll');
 
-const FindWindowA          = user32.func('intptr_t FindWindowA(const char *lpClassName, const char *lpWindowName)');
+koffi.proto('bool WNDENUMPROC(intptr_t hWnd, intptr_t lParam)');
+const EnumWindows          = user32.func('bool EnumWindows(WNDENUMPROC *lpEnumFunc, intptr_t lParam)');
+const GetClassNameA        = user32.func('int GetClassNameA(intptr_t hWnd, _Out_ char *lpClassName, int nMaxCount)');
 const FindWindowExA        = user32.func('intptr_t FindWindowExA(intptr_t hWndParent, intptr_t hWndChildAfter, const char *lpszClass, const char *lpszWindow)');
-const SendMessageTimeoutA  = user32.func('intptr_t SendMessageTimeoutA(intptr_t hWnd, uint32_t Msg, intptr_t wParam, intptr_t lParam, uint32_t fuFlags, uint32_t uTimeout, _Out_ intptr_t *lpdwResult)');
+const GetShellWindow      = user32.func('intptr_t GetShellWindow()');
+const FindWindowW          = user32.func('intptr_t FindWindowW(str16 lpClassName, str16 lpWindowName)');
+const FindWindowA          = user32.func('intptr_t FindWindowA(const char *lpClassName, const char *lpWindowName)');
 const SetParent            = user32.func('intptr_t SetParent(intptr_t hWndChild, intptr_t hWndNewParent)');
+const SetWindowLongPtrA    = user32.func('intptr_t SetWindowLongPtrA(intptr_t hWnd, int nIndex, intptr_t dwNewLong)');
+const GetWindowLongPtrA    = user32.func('intptr_t GetWindowLongPtrA(intptr_t hWnd, int nIndex)');
 const GetForegroundWindow  = user32.func('intptr_t GetForegroundWindow()');
 const GetClassNameW        = user32.func('int GetClassNameW(intptr_t hWnd, _Out_ uint16_t *lpClassName, int nMaxCount)');
-const GetClassNameA        = user32.func('int GetClassNameA(intptr_t hWnd, _Out_ char *lpClassName, int nMaxCount)');
 const GetWindowThreadProcessId = user32.func('uint32_t GetWindowThreadProcessId(intptr_t hWnd, _Out_ uint32_t *lpdwProcessId)');
 const SetWindowPos         = user32.func('bool SetWindowPos(intptr_t hWnd, intptr_t hWndInsertAfter, int X, int Y, int cx, int cy, uint32_t uFlags)');
-const ShowWindow           = user32.func('bool ShowWindow(intptr_t hWnd, int nCmdShow)');
 const IsWindow             = user32.func('bool IsWindow(intptr_t hWnd)');
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell Z-Order State
-// ─────────────────────────────────────────────────────────────────────────────
-let workerWHwnd = 0n;       // The WorkerW that hosts our widget window
-let isShellPinned = false;  // True after successful SetParent → WorkerW
-let isAlwaysOnTop = false;  // User manual "Float Above Apps" toggle (overrides shell-pin mode)
+const GWLP_HWNDPARENT = -8;
+const GWL_EXSTYLE     = -20;
+const WS_EX_TOOLWINDOW = 0x00000080;
 
-/**
- * getWindowClassA — ASCII class name lookup (reliable for shell windows)
- */
-function getWindowClassA(hwnd) {
-  try {
-    const buf = Buffer.alloc(256);
-    GetClassNameA(hwnd, buf, 256);
-    return buf.toString('ascii').replace(/\0.*$/, '');
-  } catch {
-    return '';
-  }
-}
-
-/**
- * findWorkerW — Implements the canonical Rainmeter/Wallpaper Engine technique:
- *   1. Find Progman
- *   2. Send 0x052C to spawn a WorkerW behind desktop icons
- *   3. Find the WorkerW that owns SHELLDLL_DefView
- *
- * Returns WorkerW HWND as BigInt, or 0n on failure.
- */
-function findWorkerW() {
-  try {
-    // Step 1: Get Progman handle
-    const hProgman = FindWindowA('Progman', null);
-    if (!hProgman || hProgman === 0n || hProgman === 0) {
-      console.warn('[Shell] FindWindowA("Progman") returned 0 — shell not ready');
-      return 0n;
-    }
-    const hProgmanBig = BigInt(hProgman);
-
-    // Step 2: Send 0x052C to Progman — forces Explorer to spawn/split WorkerW
-    const resultBuf = Buffer.alloc(8, 0);
-    SendMessageTimeoutA(hProgmanBig, 0x052C, 0n, 0n, 0x0002 /* SMTO_NORMAL */, 1000, resultBuf);
-
-    // Step 3: Enumerate sibling WorkerW windows to find the one with SHELLDLL_DefView
-    // We walk the sibling chain: FindWindowExA(0, prev, "WorkerW", null)
-    let hWorker = 0n;
-    let hCursor = 0n;
-    let attempts = 0;
-    while (attempts < 64) {
-      attempts++;
-      const raw = FindWindowExA(0n, hCursor, 'WorkerW', null);
-      if (!raw || raw === 0n || raw === 0) break;
-      hCursor = BigInt(raw);
-
-      // Check if this WorkerW has SHELLDLL_DefView as a direct child
-      const hDefView = FindWindowExA(hCursor, 0n, 'SHELLDLL_DefView', null);
-      if (hDefView && hDefView !== 0n && hDefView !== 0) {
-        hWorker = hCursor;
-        break;
+function findShellWindowViaEnum() {
+  let found = 0n;
+  let count = 0;
+  const cb = koffi.register((hwnd, _lparam) => {
+    try {
+      count++;
+      const buf = Buffer.alloc(256);
+      GetClassNameA(hwnd, buf, 256);
+      const cls = buf.toString('ascii').replace(/\0.*$/, '');
+      if (count <= 10) {
+        log(`[EnumSample] HWND: ${hwnd}, Class: ${cls}`);
       }
-    }
-
-    if (hWorker === 0n) {
-      // Fallback: Some Windows builds put SHELLDLL_DefView directly under Progman
-      // In that case, use Progman itself as parent
-      const hDefViewUnderProgman = FindWindowExA(hProgmanBig, 0n, 'SHELLDLL_DefView', null);
-      if (hDefViewUnderProgman && hDefViewUnderProgman !== 0n && hDefViewUnderProgman !== 0) {
-        console.warn('[Shell] WorkerW not found — using Progman as parent (older Windows build)');
-        hWorker = hProgmanBig;
+      if (cls === 'Progman' || cls === 'WorkerW') {
+        const hDefView = FindWindowExA(hwnd, 0n, 'SHELLDLL_DefView', null);
+        if (hDefView && hDefView !== 0n && hDefView !== 0) {
+          found = typeof hwnd === 'bigint' ? hwnd : BigInt(hwnd);
+          log(`[ShellEnum] Found ${cls} with SHELLDLL_DefView: ${found}`);
+          return false;
+        }
+        if (!found && cls === 'Progman') {
+          found = typeof hwnd === 'bigint' ? hwnd : BigInt(hwnd);
+          log(`[ShellEnum] Found Progman: ${found}`);
+        }
       }
+    } catch (e) {
+      log('Enum callback err:', e.message);
     }
-
-    console.log(`[Shell] WorkerW found: ${hWorker}`);
-    return hWorker;
-  } catch (err) {
-    console.error('[Shell] findWorkerW error:', err);
-    return 0n;
-  }
-}
-
-/**
- * pinDesktopToShell — Embeds desktopWin into the WorkerW shell layer.
- * After this call:
- *   • Win+D does NOT hide the window (it's inside the shell, not a top-level app)
- *   • Window can NEVER float above normal apps (it's behind SHELLDLL_DefView / icons)
- *   • Click-through on transparent areas still works via setIgnoreMouseEvents
- */
-function pinDesktopToShell() {
-  if (!desktopWin || desktopWin.isDestroyed()) return false;
-  if (isAlwaysOnTop) return false; // User has explicitly chosen "Float Above Apps" mode
-
-  try {
-    const hWorker = findWorkerW();
-    if (hWorker === 0n) {
-      console.warn('[Shell] Cannot pin — WorkerW not found. Will retry...');
-      return false;
-    }
-
-    const rawHwnd = desktopWin.getNativeWindowHandle();
-    const desktopHwnd = rawHwnd.length >= 8
-      ? rawHwnd.readBigInt64LE(0)
-      : BigInt(rawHwnd.readUInt32LE(0));
-
-    // Embed our window as a child of WorkerW (this is the Rainmeter trick)
-    SetParent(desktopHwnd, hWorker);
-
-    // After SetParent the window sits at WorkerW coordinates. Re-position to fill it.
-    const bounds = getDesktopBounds();
-    SetWindowPos(desktopHwnd, 0n, bounds.x, bounds.y, bounds.width, bounds.height,
-      0x0040 /* SWP_SHOWWINDOW */ | 0x0010 /* SWP_NOACTIVATE */);
-
-    workerWHwnd = hWorker;
-    isShellPinned = true;
-    console.log(`[Shell] Pinned desktopWin (${desktopHwnd}) → WorkerW (${hWorker})`);
     return true;
-  } catch (err) {
-    console.error('[Shell] pinDesktopToShell error:', err);
-    return false;
-  }
-}
+  }, 'WNDENUMPROC*');
 
-/**
- * unpinDesktopFromShell — Reparents window back to the desktop root (NULL parent).
- * Called when user enables "Float Above Apps" mode.
- */
-function unpinDesktopFromShell() {
-  if (!desktopWin || desktopWin.isDestroyed()) return;
   try {
-    const rawHwnd = desktopWin.getNativeWindowHandle();
-    const desktopHwnd = rawHwnd.length >= 8
-      ? rawHwnd.readBigInt64LE(0)
-      : BigInt(rawHwnd.readUInt32LE(0));
-    SetParent(desktopHwnd, 0n); // NULL parent = top-level window again
-    workerWHwnd = 0n;
-    isShellPinned = false;
-    console.log('[Shell] Unpinned — window is top-level again');
+    EnumWindows(cb, 0n);
+    log(`[ShellEnum] Enumerated total: ${count} windows, found: ${found}`);
   } catch (err) {
-    console.error('[Shell] unpinDesktopFromShell error:', err);
+    log('EnumWindows err:', err);
+  } finally {
+    koffi.unregister(cb);
   }
+  return found;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Active Foreground Helper (kept for sidebar / HUD mode awareness only)
-// ─────────────────────────────────────────────────────────────────────────────
+const SHELL_DESKTOP_CLASSES = new Set([
+  'Progman',                     // Windows Desktop Shell
+  'WorkerW',                    // Desktop Wallpaper Host (Win 10/11)
+  'SHELLDLL_DefView',           // Desktop Icon Container View
+  'SysListView32',              // Desktop Icons List
+  'Shell_TrayWnd',              // Primary Taskbar
+  'Shell_SecondaryTrayWnd',     // Multi-Monitor Taskbars
+  'Windows.UI.Core.CoreWindow', // Windows 11 Start Menu / Action Center
+  'XamlExplorerHostIslandWindow'// Modern Windows 11 Shell flyouts
+]);
+
 function getActiveForeground() {
   try {
     const hwnd = GetForegroundWindow();
@@ -210,10 +136,10 @@ function getActiveForeground() {
 }
 
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  log('Uncaught Exception:', err);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('Unhandled Rejection:', reason);
+  log('Unhandled Rejection:', reason);
 });
 
 let desktopWin = null;
@@ -221,13 +147,11 @@ let islandWin = null;
 let tray = null;
 let isDesktopVisible = true;
 let isIslandVisible = true;
+let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
 let _currentMode = 'canvas';
 let telemetryTimer = null;
-let shellPinRetryTimer = null;
+let focusMonitorTimer = null;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Window Bounds
-// ─────────────────────────────────────────────────────────────────────────────
 function getDesktopBounds() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x, y, width, height } = primaryDisplay.workArea;
@@ -244,9 +168,6 @@ function getIslandBounds() {
   return { x, y, width, height };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Window Loading
-// ─────────────────────────────────────────────────────────────────────────────
 async function loadWindow(targetWin, viewName = 'desktop') {
   const devUrl = 'http://localhost:5173';
   const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
@@ -264,9 +185,59 @@ async function loadWindow(targetWin, viewName = 'desktop') {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Desktop Window Creation
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * setupDesktopZOrder:
+ * Configures desktopWin as a top-level window anchored to the desktop layer:
+ * 1. Guarantees it is a TOP-LEVEL window (unparents from WorkerW if needed).
+ *    -> Desktop icons remain 100% visible and interactive.
+ *    -> Widgets remain 100% interactive and draggable.
+ * 2. Applies WS_EX_TOOLWINDOW style (hidden from taskbar & Alt+Tab).
+ * 3. Sets Owner to Progman/Shell via GWLP_HWNDPARENT (-8):
+ *    -> Windows treats it as part of the desktop shell, preventing Win+D minimization.
+ */
+function setupDesktopZOrder() {
+  if (!desktopWin || desktopWin.isDestroyed()) return;
+  try {
+    const rawHwnd = desktopWin.getNativeWindowHandle();
+    const desktopHwnd = rawHwnd.length >= 8
+      ? rawHwnd.readBigInt64LE(0)
+      : BigInt(rawHwnd.readUInt32LE(0));
+
+    // 1. Ensure top-level (unparent from any WorkerW)
+    SetParent(desktopHwnd, 0n);
+
+    // 2. Set WS_EX_TOOLWINDOW
+    try {
+      const exStyle = GetWindowLongPtrA(desktopHwnd, GWL_EXSTYLE);
+      const exStyleBig = typeof exStyle === 'bigint' ? exStyle : BigInt(exStyle);
+      SetWindowLongPtrA(desktopHwnd, GWL_EXSTYLE, exStyleBig | BigInt(WS_EX_TOOLWINDOW));
+      log('Set WS_EX_TOOLWINDOW successfully');
+    } catch (e) {
+      log('Set WS_EX_TOOLWINDOW err:', e.message);
+    }
+
+    // 3. Set Owner to Progman / Shell window
+    let hShell = GetShellWindow();
+    if (!hShell || hShell === 0n || hShell === 0) {
+      hShell = findShellWindowViaEnum();
+    }
+    if (!hShell || hShell === 0n || hShell === 0) {
+      hShell = FindWindowW('Progman', null);
+    }
+    if (!hShell || hShell === 0n || hShell === 0) {
+      hShell = FindWindowA('Progman', null);
+    }
+    log('Shell Window HWND:', hShell);
+    if (hShell && hShell !== 0n && hShell !== 0) {
+      const hShellBig = typeof hShell === 'bigint' ? hShell : BigInt(hShell);
+      const prevOwner = SetWindowLongPtrA(desktopHwnd, GWLP_HWNDPARENT, hShellBig);
+      log('Set GWLP_HWNDPARENT to shell window. Prev owner:', prevOwner);
+    }
+  } catch (err) {
+    log('setupDesktopZOrder err:', err);
+  }
+}
+
 function createDesktopWindow() {
   if (desktopWin && !desktopWin.isDestroyed()) return;
   const bounds = getDesktopBounds();
@@ -278,11 +249,10 @@ function createDesktopWindow() {
     height: bounds.height,
     frame: false,
     transparent: true,
-    // Key: alwaysOnTop starts FALSE. Shell-pin (WorkerW) handles Z-order properly.
-    alwaysOnTop: false,
+    alwaysOnTop: isAlwaysOnTop, // False by default so normal apps sit in front
     skipTaskbar: true,
     hasShadow: false,
-    resizable: true,
+    resizable: false,
     focusable: true,
     minimizable: false,
     webPreferences: {
@@ -293,7 +263,7 @@ function createDesktopWindow() {
     },
   });
 
-  // Click-through by default; toggled off when hovering interactive widgets
+  // Enable click-through by default so desktop icons, taskbar, and background apps remain fully usable
   desktopWin.setIgnoreMouseEvents(true, { forward: true });
 
   loadWindow(desktopWin, 'desktop');
@@ -301,60 +271,38 @@ function createDesktopWindow() {
   desktopWin.once('ready-to-show', () => {
     if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
       desktopWin.showInactive();
-
-      if (isAlwaysOnTop) {
-        // User wants to float above apps — skip WorkerW pin, use alwaysOnTop
-        desktopWin.setAlwaysOnTop(true, 'floating');
+      if (!isAlwaysOnTop) {
+        setupDesktopZOrder();
       } else {
-        // Canonical fix: pin to WorkerW shell layer with retry
-        attemptShellPin();
+        desktopWin.setAlwaysOnTop(true, 'floating');
       }
     }
   });
 
-  // Safety net: if Windows somehow minimizes us (edge case), restore immediately
+  // Intercept DWM minimize event (e.g. Win+D or Show Desktop)
   desktopWin.on('minimize', (e) => {
     e.preventDefault();
     if (!isDesktopVisible) return;
     setImmediate(() => {
-      if (desktopWin && !desktopWin.isDestroyed()) {
-        desktopWin.restore();
+      if (desktopWin && !desktopWin.isDestroyed() && isDesktopVisible) {
+        if (desktopWin.isMinimized()) desktopWin.restore();
         desktopWin.showInactive();
+        if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
       }
     });
   });
 
+  desktopWin.on('hide', () => {
+    if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
+      setImmediate(() => desktopWin.showInactive());
+    }
+  });
+
   desktopWin.on('closed', () => {
     desktopWin = null;
-    isShellPinned = false;
-    workerWHwnd = 0n;
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shell Pin with Retry (Explorer can be slow to spawn WorkerW on startup)
-// ─────────────────────────────────────────────────────────────────────────────
-function attemptShellPin(attempt = 0) {
-  if (isAlwaysOnTop) return; // Don't pin if user chose float mode
-  if (!desktopWin || desktopWin.isDestroyed()) return;
-
-  if (shellPinRetryTimer) {
-    clearTimeout(shellPinRetryTimer);
-    shellPinRetryTimer = null;
-  }
-
-  const success = pinDesktopToShell();
-  if (!success && attempt < 8) {
-    // Retry with exponential backoff: 500ms, 1s, 1.5s, 2s...
-    const delay = 500 + attempt * 500;
-    console.log(`[Shell] Pin attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
-    shellPinRetryTimer = setTimeout(() => attemptShellPin(attempt + 1), delay);
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Dynamic Island Window
-// ─────────────────────────────────────────────────────────────────────────────
 function createIslandWindow() {
   if (islandWin && !islandWin.isDestroyed()) return;
   const bounds = getIslandBounds();
@@ -366,7 +314,7 @@ function createIslandWindow() {
     height: bounds.height,
     frame: false,
     transparent: true,
-    alwaysOnTop: true,
+    alwaysOnTop: true, // Dynamic Island is permanently pinned over all apps
     skipTaskbar: true,
     hasShadow: false,
     resizable: false,
@@ -396,31 +344,45 @@ function createIslandWindow() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Telemetry Broadcast (every 2s — no focus polling needed anymore)
-// ─────────────────────────────────────────────────────────────────────────────
+// Active Focus & Desktop Z-Order Watcher (100ms tick, 0% CPU via native Win32 calls)
+function checkActiveFocus() {
+  if (!desktopWin || desktopWin.isDestroyed() || !isDesktopVisible) return;
+
+  if (isAlwaysOnTop) {
+    desktopWin.setAlwaysOnTop(true, 'floating');
+    return;
+  }
+
+  // Fast check: If Win+D minimized the window, restore immediately
+  if (desktopWin.isMinimized()) {
+    desktopWin.restore();
+    desktopWin.showInactive();
+    return;
+  }
+
+  const { className, pid } = getActiveForeground();
+  // If active foreground is our own Electron process, don't touch anything
+  if (pid === process.pid || !className) return;
+
+  const isDesktop = SHELL_DESKTOP_CLASSES.has(className);
+
+  if (isDesktop) {
+    // User is on desktop wallpaper, desktop icons, or taskbar.
+    // Ensure desktopWin is visible and placed right above wallpaper without taking focus.
+    if (!desktopWin.isVisible()) {
+      desktopWin.showInactive();
+    }
+  }
+}
+
 function startTelemetryBroadcast() {
   if (telemetryTimer) clearInterval(telemetryTimer);
 
   telemetryTimer = setInterval(async () => {
-    // Periodic shell-pin health check: if Explorer restarted, WorkerW is gone
-    if (!isAlwaysOnTop && isDesktopVisible && desktopWin && !desktopWin.isDestroyed()) {
-      if (isShellPinned && workerWHwnd !== 0n) {
-        // Verify WorkerW is still a valid window
-        try {
-          const stillValid = IsWindow(workerWHwnd);
-          if (!stillValid) {
-            console.warn('[Shell] WorkerW gone (Explorer restarted?) — re-pinning...');
-            isShellPinned = false;
-            workerWHwnd = 0n;
-            // Small delay to let Explorer fully restart
-            setTimeout(() => attemptShellPin(), 2000);
-          }
-        } catch {}
-      } else if (!isShellPinned) {
-        // Not yet pinned — keep trying
-        attemptShellPin();
-      }
+    if (isDesktopVisible && desktopWin && !desktopWin.isDestroyed() && desktopWin.isMinimized()) {
+      desktopWin.restore();
+      desktopWin.showInactive();
+      if (isAlwaysOnTop) desktopWin.setAlwaysOnTop(true, 'floating');
     }
 
     const data = await getSystemTelemetry();
@@ -433,11 +395,11 @@ function startTelemetryBroadcast() {
       }
     }
   }, 2000);
+
+  if (focusMonitorTimer) clearInterval(focusMonitorTimer);
+  focusMonitorTimer = setInterval(checkActiveFocus, 100);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Toggle Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 function toggleDesktopWidgets(forceState) {
   isDesktopVisible = typeof forceState === 'boolean' ? forceState : !isDesktopVisible;
   if (!desktopWin || desktopWin.isDestroyed()) {
@@ -449,8 +411,9 @@ function toggleDesktopWidgets(forceState) {
     desktopWin.showInactive();
     if (isAlwaysOnTop) {
       desktopWin.setAlwaysOnTop(true, 'floating');
-    } else if (!isShellPinned) {
-      attemptShellPin();
+    } else {
+      desktopWin.setAlwaysOnTop(false);
+      setupDesktopZOrder();
     }
   } else {
     desktopWin.hide();
@@ -473,9 +436,6 @@ function toggleDynamicIsland(forceState) {
   if (tray) updateTrayMenu();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// System Tray
-// ─────────────────────────────────────────────────────────────────────────────
 let updateTrayMenu = () => {};
 
 function createTray() {
@@ -517,13 +477,10 @@ function createTray() {
           isAlwaysOnTop = item.checked;
           if (desktopWin && !desktopWin.isDestroyed()) {
             if (isAlwaysOnTop) {
-              // Unpin from shell, then float above everything
-              unpinDesktopFromShell();
               desktopWin.setAlwaysOnTop(true, 'floating');
             } else {
-              // Go back to shell-pinned desktop layer
               desktopWin.setAlwaysOnTop(false);
-              attemptShellPin();
+              setupDesktopZOrder();
             }
           }
           updateTrayMenu();
@@ -557,9 +514,7 @@ function createTray() {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// IPC Handlers
-// ─────────────────────────────────────────────────────────────────────────────
+// Context-aware IPC Handlers: target the window that fired the event
 ipcMain.on('set-interactive', (event, interactive) => {
   const targetWin = BrowserWindow.fromWebContents(event.sender);
   if (targetWin && !targetWin.isDestroyed()) {
@@ -571,11 +526,10 @@ ipcMain.on('toggle-always-on-top', () => {
   isAlwaysOnTop = !isAlwaysOnTop;
   if (desktopWin && !desktopWin.isDestroyed()) {
     if (isAlwaysOnTop) {
-      unpinDesktopFromShell();
       desktopWin.setAlwaysOnTop(true, 'floating');
     } else {
       desktopWin.setAlwaysOnTop(false);
-      attemptShellPin();
+      setupDesktopZOrder();
     }
   }
   updateTrayMenu();
@@ -620,9 +574,6 @@ ipcMain.on('system:action', (_event, action) => {
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// App Lifecycle
-// ─────────────────────────────────────────────────────────────────────────────
 app.on('second-instance', () => {
   toggleDesktopWidgets(true);
   toggleDynamicIsland(true);
@@ -634,15 +585,11 @@ app.whenReady().then(() => {
   createTray();
   startTelemetryBroadcast();
 
-  // Screen metrics change (monitor plug/unplug, DPI change, resolution change)
   screen.on('display-metrics-changed', () => {
     if (desktopWin && !desktopWin.isDestroyed()) {
-      const bounds = getDesktopBounds();
-      desktopWin.setBounds(bounds);
-      // Re-pin after display change — coordinates may have shifted
+      desktopWin.setBounds(getDesktopBounds());
       if (!isAlwaysOnTop) {
-        isShellPinned = false;
-        setTimeout(() => attemptShellPin(), 500);
+        setupDesktopZOrder();
       }
     }
     if (islandWin && !islandWin.isDestroyed()) {
@@ -668,7 +615,7 @@ app.on('will-quit', () => {
   stopMediaDaemon();
   globalShortcut.unregisterAll();
   if (telemetryTimer) clearInterval(telemetryTimer);
-  if (shellPinRetryTimer) clearTimeout(shellPinRetryTimer);
+  if (focusMonitorTimer) clearInterval(focusMonitorTimer);
 });
 
 app.on('window-all-closed', (e) => {
