@@ -148,6 +148,7 @@ let tray = null;
 let isDesktopVisible = true;
 let isIslandVisible = false;
 let isAlwaysOnTop = false;    // User manual "Float Desktop Widgets Above Apps" toggle from tray
+let isOwnerSet = false;
 let _currentMode = 'canvas';
 let telemetryTimer = null;
 let focusMonitorTimer = null;
@@ -232,6 +233,7 @@ function setupDesktopZOrder() {
       const hShellBig = typeof hShell === 'bigint' ? hShell : BigInt(hShell);
       const prevOwner = SetWindowLongPtrA(desktopHwnd, GWLP_HWNDPARENT, hShellBig);
       log('Set GWLP_HWNDPARENT to shell window. Prev owner:', prevOwner);
+      isOwnerSet = true;
     }
   } catch (err) {
     log('setupDesktopZOrder err:', err);
@@ -361,6 +363,10 @@ function checkActiveFocus() {
   if (isAlwaysOnTop) {
     desktopWin.setAlwaysOnTop(true, 'floating');
     return;
+  }
+
+  if (!isOwnerSet) {
+    setupDesktopZOrder();
   }
 
   // Fast check: If Win+D minimized the window, restore immediately
